@@ -1,0 +1,5 @@
+*.out
+*.sh
+*.log
+
+DIRS.py
