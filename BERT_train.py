@@ -15,11 +15,19 @@ from multimodal_transformers.model import AutoModelWithTabular
 from multimodal_transformers.model import TabularConfig
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score, confusion_matrix
 
-os.chdir('/home/work/applicata/francesco.durazzi2/vaccines/')
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-os.environ['TRANSFORMERS_CACHE'] = '/home/work/applicata/francesco.durazzi2/'
+# DIRECTORIES: 
+# TRANSFORMERS_CACHE_DIR: where to store the transformer models cache (home folder is good), 
+# DATA_DIR: where to store data and trained model, 
+# LARGE_DATA_DIR: reading only directory for shared storage data (e.g. df_full.pkl)
+from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
+os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
+
+# If on CPU onlu, set device='cpu'
 device='cuda'
-phase='inference'
+phase='train'
+
+if device=='cuda':
+    os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 #metric = evaluate.load("accuracy")
 def compute_metrics(logits_and_labels):
@@ -32,7 +40,8 @@ def compute_metrics(logits_and_labels):
 
 
 
-#with open('df_full.pkl', 'rb') as f:
+### To create annotated_dataset.csv
+#with open(LARGE_DATA_DIR+'df_full.pkl', 'rb') as f:
 #    df = pickle.load(f)
 
 #df_anno=df[df['annotation'].notna()]
@@ -41,12 +50,12 @@ def compute_metrics(logits_and_labels):
 ##df_anno['text']=df_anno['text'].apply(lambda x: re.sub(r'[^\x00-\x7F]+',' ', x))
 ##df_anno[['text','annotation']].rename(columns={'text':'sentence'}).to_csv('annotated_dataset.csv', index=True, sep='\t',encoding='utf-8')
 ## For loop to write a csv file
-#with open('annotated_dataset.csv', 'w',encoding='utf-8') as f:
+#with open(DATA_DIR+'annotated_dataset.csv', 'w',encoding='utf-8') as f:
 #    f.write('id\tsentence\tlabel\n')
 #    for i in range(len(df_anno)):
 #        f.write(str(df_anno.index[i])+'\t'+df_anno.iloc[i]['text']+'\t'+df_anno.iloc[i]['annotation']+'\n')
 
-ds = load_dataset('csv', data_files='annotated_dataset.csv', split='train',encoding='utf-8',delimiter='\t')
+ds = load_dataset('csv', data_files=DATA_DIR+'annotated_dataset.csv', split='train',encoding='utf-8',delimiter='\t')
 id2label = {0:'AntiVax', 1:'Neutral', 2:'ProVax'}
 label2id = {'AntiVax':0, 'Neutral':1, 'ProVax':2}
 # Remove entries not in the label set
@@ -107,11 +116,11 @@ if phase=='train':
             progress_bar.update(1)
     
     # Save the model
-    model.save_model('alb3rt0_3epochs')
+    model.save_pretrained(DATA_DIR+'alb3rt0_3epochs')
 
 
 if phase=='inference':
-    model= AutoModelForSequenceClassification.from_pretrained('alb3rt0_3epochs',num_labels=3).to(device)
+    model= AutoModelForSequenceClassification.from_pretrained(DATA_DIR+'alb3rt0_3epochs',num_labels=3).to(device)
 
 predictions = []
 labels = []
@@ -129,34 +138,3 @@ predictions = torch.cat(predictions).cpu().numpy()
 labels = torch.cat(labels).cpu().numpy()
 print(compute_metrics((predictions, labels)))
 
-
-    
-
-exit()
-
-training_args = TrainingArguments(output_dir='training_dir',
-                                  evaluation_strategy='epoch',
-                                  #save_strategy='epoch',
-                                  num_train_epochs=3,
-                                  per_device_train_batch_size=64,
-                                  per_device_eval_batch_size=128,
-                                  )
-
-
-
-trainer = Trainer(model,
-                  training_args,
-                  train_dataset = tokenized_dataset["train"],
-                  eval_dataset = tokenized_validation["train"],
-                  tokenizer=tokenizer,
-                  optimizers=(torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.01),
-                              None ),
-                  compute_metrics=compute_metrics)
-
-trainer.train()
-
-# Evaluate the model
-trainer.evaluate()
-
-# Save the model
-trainer.save_model('alb3rt0_3epochs')
