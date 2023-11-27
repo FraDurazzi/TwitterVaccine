@@ -14,8 +14,9 @@ from collections import Counter
 import networkx as nx
 import numpy as np
 import pandas as pd
-from locals import RAW_DATAPATH
 from scipy import sparse
+
+from locals import RAW_DATAPATH
 
 DATAPATH = pathlib.Path("data")
 DATAPATH.mkdir(parents=True, exist_ok=True)
@@ -48,7 +49,7 @@ def load_data(deadline: str) -> pd.DataFrame:
     return df_full[df_full.created_at < deadline]
 
 
-def load_graph(df_full: pd.DataFrame) -> pd.DataFrame:
+def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
     """Load the whole dataset and compute the (tweet, retweets) pairs."""
     # columns:
     # id,created_at,text,user.id,user.screen_name,place,url,
@@ -64,12 +65,15 @@ def load_graph(df_full: pd.DataFrame) -> pd.DataFrame:
 
     # use meaningful headers
     retweets.columns = ["source", "hyperlink", "target"]
+
+    # I want hyperlinks counted from 0, 1... as this will become the column index.
     hyperlinks = {k: i for i, k in enumerate(retweets["hyperlink"].unique())}
     retweets["hyperlink"] = retweets["hyperlink"].map(lambda x: hyperlinks[x])
+    print("Num of reteets", len(retweets))
     return retweets
 
 
-def write_hypergraph(retweets: pd.DataFrame, fname: str) -> None:
+def write_hypergraph(retweets: pd.DataFrame, fname: pd.Timestamp) -> None:
     """Write down the hyprgraph."""
     print("Building hyprgraph for", fname)
 
@@ -133,9 +137,11 @@ def extract_largest_component(
     n_comps, components = sparse.csgraph.connected_components(rtw_net, directed=False)
 
     largest_components = Counter(components).most_common(1)
-    largest_component, new_N = largest_components[0]
+    largest_component, new_nn = largest_components[0]
     largest_component = np.argwhere(components == largest_component).flatten()
-    print(f"Largest component with {new_N} users ({100 * new_N/tail.shape[0]:5.2f} %).")
+    print(
+        f"Largest component with {new_nn} users ({100 * new_nn/tail.shape[0]:5.2f} %)."
+    )
 
     # projector to users in the largest component
     largest_component_proj = sparse.coo_matrix(
@@ -143,7 +149,7 @@ def extract_largest_component(
             np.ones_like(largest_component),
             (np.arange(len(largest_component)), largest_component),
         ),
-        shape=(new_N, tail.shape[0]),
+        shape=(new_nn, tail.shape[0]),
     ).tocsr()
     tail = largest_component_proj @ tail
     head = largest_component_proj @ head
@@ -165,6 +171,13 @@ def extract_largest_component(
     return tail, head, largest_component
 
 
+def parse_date(date: str | pd.Timestamp) -> pd.Timestamp | str:
+    """Toggle format from str to pd.Timestamp."""
+    if isinstance(date, str):
+        return pd.Timestamp(date + "T00:00:00+02")
+    return date.isoformat().split()[0].split("T")[0]
+
+
 def main(deadline: pd.Timestamp) -> None:
     """Do the main."""
     print("============")
@@ -180,7 +193,8 @@ def main(deadline: pd.Timestamp) -> None:
     graph = nx.from_scipy_sparse_array(
         adj, create_using=nx.DiGraph, edge_attribute="weight"
     )
-    # graph = nx.relabel_nodes(graph, dict(enumerate(users.index)))
+    # node label is saved in hyprgraph_deadline_usermap.csv.gz
+    # nx.relabel_nodes(graph, mapping=dict(zip(users.index, users)))
     nx.write_graphml_lxml(
         graph,
         DATAPATH / f"retweet_graph_directed_{parse_date(deadline)}.graphml",
@@ -189,13 +203,6 @@ def main(deadline: pd.Timestamp) -> None:
         graph.to_undirected(),
         DATAPATH / f"retweet_graph_undirected_{parse_date(deadline)}.graphml",
     )
-
-
-def parse_date(date: str | pd.Timestamp) -> pd.Timestamp | str:
-    """Toggle format from str to pd.Timestamp."""
-    if isinstance(date, str):
-        return pd.Timestamp(date + "T00:00:00+02")
-    return date.isoformat().split()[0].split("T")[0]
 
 
 if __name__ == "__main__":
