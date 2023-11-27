@@ -188,10 +188,8 @@ def main(deadline: pd.Timestamp) -> None:
     print(parse_date(deadline))
     print("============")
 
-    retweets = load_graph(load_data(deadline))
-    adj, users = write_hypergraph(
-        retweets, DATAPATH / f"hyprgraph_{parse_date(deadline)}_{{}}.{{}}"
-    )
+    retweets = compute_graph(load_data(deadline))
+    adj, users = write_hypergraph(retweets, deadline)
 
     # Directed graph
     graph = nx.from_scipy_sparse_array(
