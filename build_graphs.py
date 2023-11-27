@@ -80,30 +80,18 @@ def write_hypergraph(retweets: pd.DataFrame, fname: pd.Timestamp) -> None:
     users = set(retweets["source"]) | set(retweets["target"])
     users = {u: i for i, u in enumerate(users)}
 
-    weight = retweets["hyperlink"].value_counts()
-
-    target = np.array(
-        [
-            [
-                r["hyperlink"],  # id of hyperlink
-                users[r["source"]],  # id of source user
-                users[r["target"]],  # i of target user
-                weight.loc[r["hyperlink"]],  # counts of same hyperlinks
-            ]
-            for _, r in retweets.iterrows()
-        ],
-        ndmin=2,
-    )
-    print(target.shape)
+    hg_links = retweets["hyperlink"]
+    hg_source = retweets["source"].map(lambda x: users[x])
+    hg_target = retweets["target"].map(lambda x: users[x])
 
     tail = sparse.coo_matrix(
-        (target[:, 3], (target[:, 1], target[:, 0])),
+        (np.ones(len(retweets)), (hg_source, hg_links)),
         shape=(len(users), len(retweets)),
         dtype=int,
     ).tocsr()
     print("Tail", tail.shape)
     head = sparse.coo_matrix(
-        (np.ones(target.shape[0]), (target[:, 2], target[:, 0])),
+        (np.ones(len(retweets)), (hg_target, hg_links)),
         shape=(len(users), len(retweets)),
         dtype=int,
     ).tocsr()
@@ -113,13 +101,13 @@ def write_hypergraph(retweets: pd.DataFrame, fname: pd.Timestamp) -> None:
     tail, head, comp_indx = extract_largest_component(tail, head)
 
     users = pd.Series(list(users.keys()), index=list(users.values()))
-    users = users[comp_indx]
+    users = users[comp_indx].reset_index(drop=True)
     print(users.shape, tail.shape, head.shape)
 
-    sparse.save_npz(fname.format("head", "npz"), head)
-    sparse.save_npz(fname.format("tail", "npz"), tail)
+    sparse.save_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz", head)
+    sparse.save_npz(DATAPATH / f"hyprgraph_{deadline}_tail.npz", tail)
 
-    users.to_csv(fname.format("usermap", "csv.gz"))
+    users.to_csv(DATAPATH / f"hyprgraph_{deadline}_usermap.csv.gz")
 
     return tail @ head.T, users
 
