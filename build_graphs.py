@@ -112,6 +112,22 @@ def write_hypergraph(retweets: pd.DataFrame, fname: pd.Timestamp) -> None:
     return tail @ head.T, users
 
 
+def load_graph(
+    deadline: pd.Timestamp
+) -> tuple[sparse.csr_matrix, sparse.csr_matrix, pd.Series]:
+    """Load head tail and usermap."""
+    head = sparse.load_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz")
+    tail = sparse.load_npz(DATAPATH / f"hyprgraph_{deadline}_tail.npz")
+
+    users = pd.read_csv(
+        DATAPATH / f"hyprgraph_{deadline}_usermap.csv.gz",
+        index_col=0,
+        dtype="int64",
+    )["0"]
+
+    return tail, head, users
+
+
 def extract_largest_component(
     tail: sparse.csr_matrix, head: sparse.csc_matrix
 ) -> (sparse.csr_matrix, sparse.csr_matrix):
