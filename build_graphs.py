@@ -15,8 +15,8 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from scipy import sparse
-
-from locals import RAW_DATAPATH
+from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
+#from locals import RAW_DATAPATH
 
 DATAPATH = pathlib.Path("data")
 DATAPATH.mkdir(parents=True, exist_ok=True)
@@ -25,7 +25,7 @@ DATAPATH.mkdir(parents=True, exist_ok=True)
 def load_data(deadline: str) -> pd.DataFrame:
     """Load the full dataset."""
     df_full = pd.read_csv(
-        RAW_DATAPATH / "df_full.csv.gz",
+        LARGE_DATA_DIR + "df_full.csv.gz",
         index_col="id",
         dtype={
             "id": str,
@@ -69,7 +69,7 @@ def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
     # I want hyperlinks counted from 0, 1... as this will become the column index.
     hyperlinks = {k: i for i, k in enumerate(retweets["hyperlink"].unique())}
     retweets["hyperlink"] = retweets["hyperlink"].map(lambda x: hyperlinks[x])
-    print("Num of reteets", len(retweets))
+    print("Num of retweets", len(retweets))
     return retweets
 
 
