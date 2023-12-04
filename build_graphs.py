@@ -65,12 +65,12 @@ def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
     ]
 
     # use meaningful headers
-    retweets.columns = ["source", "hyperlink", "target"]
+    retweets.columns = ["target", "hyperlink", "source"]
 
     # I want hyperlinks counted from 0, 1... as this will become the column index.
     hyperlinks = {k: i for i, k in enumerate(retweets["hyperlink"].unique())}
     retweets["hyperlink"] = retweets["hyperlink"].map(lambda x: hyperlinks[x])
-    print("Num of reteets", len(retweets))
+    print("Num of retweets", len(retweets))
     return retweets
 
 
@@ -90,13 +90,13 @@ def write_hypergraph(retweets: pd.DataFrame, deadline: str) -> None:
         shape=(len(users), len(retweets)),
         dtype=int,
     ).tocsr()
-    print("Tail", tail.shape)
+    print("Tail", tail.shape, tail.nnz)
     head = sparse.coo_matrix(
         (np.ones(len(retweets)), (hg_target, hg_links)),
         shape=(len(users), len(retweets)),
         dtype=int,
     ).tocsr()
-    print("Head", head.shape)
+    print("Head", head.shape, head.nnz)
 
     # only get the largest component
     tail, head, comp_indx = extract_largest_component(tail, head)
@@ -170,8 +170,8 @@ def extract_largest_component(
     )
     tail = tail @ retweets_to_keep_proj
     head = head @ retweets_to_keep_proj
-    print("Tail", tail.shape)
-    print("Head", head.shape)
+    print("Tail", tail.shape, tail.nnz)
+    print("Head", head.shape, head.nnz)
 
     return tail, head, largest_component
 
