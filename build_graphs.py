@@ -14,15 +14,14 @@ from collections import Counter
 import networkx as nx
 import numpy as np
 import pandas as pd
-from scipy import sparse
-
 from locals import RAW_DATAPATH
+from scipy import sparse
 
 DATAPATH = pathlib.Path("data")
 DATAPATH.mkdir(parents=True, exist_ok=True)
 
 
-def load_data(deadline: str) -> pd.DataFrame:
+def load_data(deadline: pd.Timestamp | None) -> pd.DataFrame:
     """Load the full dataset."""
     df_full = pd.read_csv(
         RAW_DATAPATH / "df_full.csv.gz",
@@ -44,8 +43,10 @@ def load_data(deadline: str) -> pd.DataFrame:
         na_values=["", "[]"],
         parse_dates=["created_at"],
         lineterminator="\n",
-        # nrows=100000,  # uncomment to test the code on a short dataset
+        nrows=100000 if deadline is None else None,
     )
+    if deadline is None:
+        return df_full
     return df_full[df_full.created_at < deadline]
 
 
@@ -73,9 +74,9 @@ def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
     return retweets
 
 
-def write_hypergraph(retweets: pd.DataFrame, fname: pd.Timestamp) -> None:
+def write_hypergraph(retweets: pd.DataFrame, deadline: str) -> None:
     """Write down the hyprgraph."""
-    print("Building hyprgraph for", fname)
+    print("Building hyprgraph for", deadline)
 
     users = set(retweets["source"]) | set(retweets["target"])
     users = {u: i for i, u in enumerate(users)}
@@ -182,14 +183,15 @@ def parse_date(date: str | pd.Timestamp) -> pd.Timestamp | str:
     return date.isoformat().split()[0].split("T")[0]
 
 
-def main(deadline: pd.Timestamp) -> None:
+def main(deadline: pd.Timestamp | None = None) -> None:
     """Do the main."""
+    _deadline = "test" if deadline is None else parse_date(deadline)
     print("============")
-    print(parse_date(deadline))
+    print(_deadline)
     print("============")
 
     retweets = compute_graph(load_data(deadline))
-    adj, users = write_hypergraph(retweets, deadline)
+    adj, users = write_hypergraph(retweets, _deadline)
 
     # Directed graph
     graph = nx.from_scipy_sparse_array(
@@ -199,15 +201,16 @@ def main(deadline: pd.Timestamp) -> None:
     # nx.relabel_nodes(graph, mapping=dict(zip(users.index, users)))
     nx.write_graphml_lxml(
         graph,
-        DATAPATH / f"retweet_graph_directed_{parse_date(deadline)}.graphml",
+        DATAPATH / f"retweet_graph_directed_{_deadline}.graphml",
     )
     nx.write_graphml_lxml(
         graph.to_undirected(),
-        DATAPATH / f"retweet_graph_undirected_{parse_date(deadline)}.graphml",
+        DATAPATH / f"retweet_graph_undirected_{_deadline}.graphml",
     )
 
 
 if __name__ == "__main__":
+    main()
     for deadline in [
         "2021-06-01",
         "2022-01-01",
