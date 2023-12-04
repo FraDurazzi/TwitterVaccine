@@ -12,13 +12,15 @@ import pandas as pd
 import pygenstability as stability
 import sknetwork
 import tqdm
-from scipy import sparse
-
 from build_graphs import DATAPATH, load_graph
+from scipy import sparse
 
 
 def partition_core(
-    tail: sparse.spmatrix, head: sparse.spmatrix, usermap: pd.Series, kind="sk_louvain"
+    tail: sparse.spmatrix,
+    head: sparse.spmatrix,
+    usermap: pd.Series,
+    kind: str = "sk_louvain",
 ) -> pd.Series:
     """Compute the partition of the core of the graph.
 
@@ -198,17 +200,16 @@ def plot_comm_size(parts: pd.DataFrame) -> None:
         ncols=len(parts.columns), sharey=True, figsize=(3 * len(parts.columns), 5)
     )
 
+    print(parts.nunique())
     for ax, part in zip(axs, parts.columns):
         print(part)
         counts = parts[part].value_counts()
-        print(counts)
         counts = counts.sort_values(ascending=False).cumsum()
-        print(counts)
         counts /= len(parts[part])
         ax.scatter(range(len(counts)), counts)
         ax.semilogx()
         ax.set_title(part)
-        ax.set_xlim(1, 20)
+        # ax.set_xlim(1, 20)
         ax.axhline(0.9)
     axs[0].set_ylabel("Cumulative ratio.")
     plt.savefig("plot_community_sizes.pdf")
@@ -249,7 +250,9 @@ def sparse2igraph(adjacency: sparse.spmatrix, **kwargs: dict) -> igraph.Graph:
 def main(deadline: str) -> None:
     """Do the main."""
     tail, head, usermap = load_graph(deadline)
-    adj = tail @ head.T
+    print("N users =", tail.shape[0])
+    print("N edges =", head.nnz, tail.nnz)
+    # adj = tail @ head.T
     p = pd.DataFrame()
 
     pp = partition_core(tail, head, usermap, kind="leiden")
@@ -265,15 +268,16 @@ def main(deadline: str) -> None:
     for c in pstab.columns:
         p[c] = pstab[c]
 
+    print(p)
     plot_comm_size(p)
 
     for part in p.columns:
-        p[part + "_5000"] = simplify_community_struct(p[part], comm_size=5000)
+        # p[part + "_5000"] = simplify_community_struct(p[part], comm_size=5000)
         p[part + "_90"] = simplify_community_struct(p[part], coverage=0.9)
 
     p.to_csv(DATAPATH / f"communities_{deadline}.csv.gz")
 
 
 if __name__ == "__main__":
-    for deadline in ["2021-06-01"]:
+    for deadline in ["test", "2021-06-01"]:
         main(deadline)
