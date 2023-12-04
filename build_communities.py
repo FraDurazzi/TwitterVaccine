@@ -38,49 +38,81 @@ def partition_core(
 
     # users that either have no tweets and retweets just one other user or
     # have tweets that get retweeted only from another user and no retweets.
-    # In term of topology, these are dangling nodes with either one outgoing or ingoing link
-    dangling = np.logical_or(
+    # In term of topology, these are periphery nodes with either one outgoing or ingoing link
+    periphery = np.logical_or(
         np.logical_and(retweeters == 0, tweeters == 1),
         np.logical_and(retweeters == 1, tweeters == 0),
     )
-    core = np.argwhere(~dangling)[:, 1]
-    dangling = np.argwhere(dangling)[:, 1]
+    # list of indices of adjacency matrix:
+    core = np.argwhere(~periphery)[:, 1]
+    periphery = np.argwhere(periphery)[:, 1]
+    n_nodes = tail.shape[0]
+    n_p = len(periphery)
+    n_c = len(core)
 
-    proj_dangling = sparse.coo_matrix(
-        (np.ones_like(dangling), (dangling, np.arange(len(dangling)))),
-        shape=(tail.shape[0], len(dangling)),
+    # projectore to the periphery subset of nodes
+    # shape: N x N_p
+    proj_periphery = sparse.coo_matrix(
+        (np.ones_like(periphery), (periphery, np.arange(len(periphery)))),
+        shape=(n_nodes, n_p),
     ).tocsr()
-    dangling_links = proj_dangling.T @ adjacency + (adjacency @ proj_dangling).T
-    i, j, _ = sparse.find(dangling_links)
-    # map from dangling indexes to their neighbors indexes.
-    dangling_map = {dangling[_i]: _j for _i, _j in zip(i, j)}
 
+    periphery_links = proj_periphery.T @ adjacency + (adjacency @ proj_periphery).T
+
+    # projectore to the core subset of nodes
+    # shape: N x N_c
     proj_core = sparse.coo_matrix(
         (np.ones_like(core), (core, np.arange(len(core)))),
-        shape=(tail.shape[0], len(core)),
+        shape=(n_nodes, n_c),
     ).tocsr()
     core_adj = proj_core.T @ (tail @ head.T).tocsr() @ proj_core
+
+    # link from core to periphery N_p x N_c
+    core_periphery = periphery_links @ proj_core
 
     # compute the partition structure on the core of the network
     core_partition = partition(core_adj, kind=kind)
 
-    # map the index to the original index in adjacency
-    core_partition.index = core_partition.index.map(pd.Series(core))
-    # append dangling nodes with the original indexes (keys) and the community
-    # of the neighbor in the core (core_partition[c])
-    core_partition = pd.concat(
-        [
-            core_partition,
-            pd.Series(
-                [core_partition[c] for c in dangling_map.values()],
-                index=dangling_map.keys(),
-            ),
-        ]
-    )
+    if isinstance(core_partition, pd.DataFrame):
+        for c in core_partition.columns:
+            full_partition = pd.DataFrame(
+                {
+                    c: _hydrate_(
+                        core_partition[c], core_periphery, proj_core, proj_periphery
+                    )
+                    for c in core_partition.columns
+                },
+                index=pd.Index(usermap, name="uid"),
+            )
+    else:
+        full_partition = pd.Series(
+            _hydrate_(core_partition, core_periphery, proj_core, proj_periphery),
+            index=pd.Index(usermap, name="uid"),
+        )
+    return full_partition
 
-    core_partition.index = core_partition.index.map(usermap)
 
-    return core_partition
+def _hydrate_(core_partition, core_periphery, proj_core, proj_periphery):
+    # partition: N_c x N_comm
+    n_c = len(core_partition)
+    n_comm = core_partition.nunique()
+    core_part = sparse.coo_matrix(
+        (
+            np.ones_like(core_partition),
+            (core_partition.index.to_numpy(), core_partition.to_numpy()),
+        ),
+        shape=(n_c, n_comm),
+    ).tocsr()
+    # assign the periphery nodes to the corresponding core node communities.
+    # shape: N_p x N_comm
+    periphery_part = core_periphery @ core_part
+
+    # partition of the whole adj
+    # shape: N x N_comm
+    full_partition = proj_core @ core_part + proj_periphery @ periphery_part
+    # compress the partition to a list of class indeces
+    compressor = sparse.coo_matrix(np.arange(n_comm), shape=(1, n_comm)).tocsr()
+    return (full_partition @ compressor.T).toarray().astype(int).squeeze()
 
 
 def partition(
@@ -126,8 +158,7 @@ def partition(
             {
                 f"stab_{p_id}": stab["community_id"][p_id]
                 for p_id in stab["selected_partitions"]
-            },
-            index=usermap,
+            }
         )
 
     if kind in {"infomap", "leiden", "fastgreedy"}:
