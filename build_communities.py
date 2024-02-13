@@ -225,6 +225,7 @@ def compute_transition_matrix(matrix: sparse.csr_matrix, niter: int = 10000) -> 
         The transition matrix.
     v0 : np.matrix
         the steadystate
+
     """
     # marginal
     tot = matrix.sum(0).A1
@@ -288,6 +289,8 @@ def simplify_community_struct(
     The reduction can be done with:
     - a community size cutoff
     - a coverage ratio
+
+    all the other (small) communities are merged together.
     """
     counts = community.value_counts().sort_values(ascending=False)
     if comm_size > 0:
