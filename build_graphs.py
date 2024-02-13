@@ -14,7 +14,6 @@ from collections import Counter
 import networkx as nx
 import numpy as np
 import pandas as pd
-from locals import RAW_DATAPATH
 from scipy import sparse
 
 DATAPATH = pathlib.Path("data")
@@ -23,6 +22,8 @@ DATAPATH.mkdir(parents=True, exist_ok=True)
 
 def load_data(deadline: pd.Timestamp | None) -> pd.DataFrame:
     """Load the full dataset."""
+    from locals import RAW_DATAPATH
+
     df_full = pd.read_csv(
         RAW_DATAPATH / "df_full.csv.gz",
         index_col="id",
@@ -114,7 +115,7 @@ def write_hypergraph(retweets: pd.DataFrame, deadline: str) -> None:
 
 
 def load_graph(
-    deadline: pd.Timestamp
+    deadline: pd.Timestamp,
 ) -> tuple[sparse.csr_matrix, sparse.csr_matrix, pd.Series]:
     """Load head tail and usermap."""
     head = sparse.load_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz")
