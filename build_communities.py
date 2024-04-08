@@ -207,9 +207,9 @@ def partition(
     return p
 
 
-def compute_transition_matrix(matrix: sparse.csr_matrix, niter: int = 10000) -> tuple(
-    sparse.spmatrix, sparse.spmatrix
-):
+def compute_transition_matrix(
+    matrix: sparse.csr_matrix, niter: int = 10000
+) -> tuple[sparse.spmatrix, sparse.spmatrix]:
     r"""Return the transition matrix.
 
     Parameters
