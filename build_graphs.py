@@ -114,7 +114,7 @@ def write_hypergraph(retweets: pd.DataFrame, deadline: str) -> None:
 
 
 def load_graph(
-    deadline: pd.Timestamp
+    deadline: pd.Timestamp,
 ) -> tuple[sparse.csr_matrix, sparse.csr_matrix, pd.Series]:
     """Load head tail and usermap."""
     head = sparse.load_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz")
@@ -198,7 +198,7 @@ def main(deadline: pd.Timestamp | None = None) -> None:
         adj, create_using=nx.DiGraph, edge_attribute="weight"
     )
     # node label is saved in hyprgraph_deadline_usermap.csv.gz
-    # nx.relabel_nodes(graph, mapping=dict(zip(users.index, users)))
+    nx.relabel_nodes(graph, mapping=dict(zip(users.index, users)))
     nx.write_graphml_lxml(
         graph,
         DATAPATH / f"retweet_graph_directed_{_deadline}.graphml",
