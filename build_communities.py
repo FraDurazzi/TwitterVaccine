@@ -74,22 +74,19 @@ def partition_core(
     core_partition = partition(core_adj, kind=kind)
 
     if isinstance(core_partition, pd.DataFrame):
-        for c in core_partition.columns:
-            full_partition = pd.DataFrame(
-                {
-                    c: _hydrate_(
-                        core_partition[c], core_periphery, proj_core, proj_periphery
-                    )
-                    for c in core_partition.columns
-                },
-                index=pd.Index(usermap, name="uid"),
-            )
-    else:
-        full_partition = pd.Series(
-            _hydrate_(core_partition, core_periphery, proj_core, proj_periphery),
+        return pd.DataFrame(
+            {
+                c: _hydrate_(
+                    core_partition[c], core_periphery, proj_core, proj_periphery
+                )
+                for c in core_partition.columns
+            },
             index=pd.Index(usermap, name="uid"),
         )
-    return full_partition
+    return pd.Series(
+        _hydrate_(core_partition, core_periphery, proj_core, proj_periphery),
+        index=pd.Index(usermap, name="uid"),
+    )
 
 
 def _hydrate_(
@@ -339,7 +336,7 @@ def main(deadline: str) -> None:
     for part in p.columns:
         p[part + "_90"] = simplify_community_struct(p[part], coverage=0.9)
 
-    p.to_csv(DATAPATH / f"communities_{deadline}.csv.gz")
+    p.to_csv(DATAPATH / f"communities_2_{deadline}.csv.gz")
 
 
 if __name__ == "__main__":
