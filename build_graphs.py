@@ -34,7 +34,7 @@ class Graph:
         )
         # I want hyperlinks counted from 0, 1... as this will become the column index.
         hyperlinks = {k: i for i, k in enumerate(data["retweeted_status.id"].unique())}
-        self._data["hyperlinks"] = data["retweeted_status.id"].map(
+        self._data["hyperlink"] = data["retweeted_status.id"].map(
             lambda x: hyperlinks[x]
         )
 
