@@ -6,6 +6,7 @@ It will build:
     2. retweet network (directed)
     3. return hyprgraph (directed, head + tail)
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -20,7 +21,70 @@ DATAPATH = pathlib.Path("data")
 DATAPATH.mkdir(parents=True, exist_ok=True)
 
 
-def load_data(deadline: pd.Timestamp | None) -> pd.DataFrame:
+class Graph:
+    """Twitter data to build a graph."""
+
+    def __init__(self, data: pd.DataFrame) -> None:
+        """Initialize."""
+        self._data = data.rename(
+            columns={
+                "user.id": "target",
+                "retweeted_status.user.id": "source",
+            }
+        )
+        # I want hyperlinks counted from 0, 1... as this will become the column index.
+        hyperlinks = {k: i for i, k in enumerate(data["retweeted_status.id"].unique())}
+        self._data["hyperlinks"] = data["retweeted_status.id"].map(
+            lambda x: hyperlinks[x]
+        )
+
+        users = pd.Series(list(set(self._data["source"]) | set(self._data["target"])))
+        users_inv = {u: i for i, u in users.items()}
+
+        hg_links = self._data["hyperlink"]
+        hg_source = self._data["source"].map(lambda x: users_inv[x])
+        hg_target = self._data["target"].map(lambda x: users_inv[x])
+
+        self.tail = sparse.coo_matrix(
+            (np.ones(len(self._data)), (hg_source, hg_links)),
+            shape=(len(users_inv), len(self._data)),
+            dtype=int,
+        ).tocsr()
+        self.head = sparse.coo_matrix(
+            (np.ones(len(self._data)), (hg_target, hg_links)),
+            shape=(len(users_inv), len(self._data)),
+            dtype=int,
+        ).tocsr()
+
+        self.users = users
+
+    def info(self) -> None:
+        """Print information."""
+        print("Tail", self.tail.shape, self.tail.nnz)
+        print("Head", self.head.shape, self.head.nnz)
+
+    def largest_component(self) -> None:
+        """Keep only the largest componet."""
+        tail, head, comp_indx = extract_largest_component(self.tail, self.head)
+        self.tail = tail
+        self.head = head
+        self.users = self.users.iloc[comp_indx].reset_index(drop=True)
+        # self._data do not need to be shrinked since the hyperlink dimension is not touched.
+
+    def adj(self) -> sparse.spmatrix:
+        """Return the sparse adjacency matrix."""
+        return self.tail @ self.head.T
+
+    def write(self, basepath: pathlib.Path) -> None:
+        """Write necessary data to disk."""
+        sparse.save_npz(basepath.parent / (basepath.name + "_head.npz"), self.head)
+        sparse.save_npz(basepath.parent / (basepath.name + "_tail.npz"), self.tail)
+        self._data[["id", "hyperlink", "retweeted_status.id"]].to_csv(
+            basepath.parent / (basepath.name + "_ids.npz")
+        )
+
+
+def load_data(deadline: pd.Timestamp | None) -> Graph:
     """Load the full dataset."""
     from locals import RAW_DATAPATH
 
@@ -47,26 +111,31 @@ def load_data(deadline: pd.Timestamp | None) -> pd.DataFrame:
         nrows=100000 if deadline is None else None,
     )
     if deadline is None:
-        return df_full
-    return df_full[df_full.created_at < deadline]
+        return Graph(df_full)
+    return Graph(df_full[df_full.created_at < deadline])
 
 
 def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
-    """Load the whole dataset and compute the (tweet, retweets) pairs."""
-    # columns:
-    # id,created_at,text,user.id,user.screen_name,place,url,
-    #      retweeted_status.id,retweeted_status.user.id,retweeted_status.url,
-    #      annotation,user_annotation,lang
+    """Load the whole dataset and compute the (tweet, retweets) pairs.
 
-    # filter only tweets before a deadline.
+    columns:
+    id,created_at,text,user.id,user.screen_name,place,url,
+         retweeted_status.id,retweeted_status.user.id,retweeted_status.url,
+         annotation,user_annotation,lang
 
-    # users that retweet
+    filter only tweets before a deadline.
+
+    users that retweet
+    """
+    # keep only retweets and the link to the original tweet.
     retweets = df_full.dropna(subset="retweeted_status.id")[
-        ["user.id", "retweeted_status.id", "retweeted_status.user.id"]
+        ["id", "user.id", "retweeted_status.id", "retweeted_status.user.id"]
     ]
 
+    # TODO(mauro): write down `id` -- `retweeted_status.id` -- anonymized(`user.id`)
+
     # use meaningful headers
-    retweets.columns = ["target", "hyperlink", "source"]
+    retweets.columns = pd.Index(["target", "hyperlink", "source"])
 
     # I want hyperlinks counted from 0, 1... as this will become the column index.
     hyperlinks = {k: i for i, k in enumerate(retweets["hyperlink"].unique())}
@@ -75,40 +144,38 @@ def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
     return retweets
 
 
-def write_hypergraph(retweets: pd.DataFrame, deadline: str) -> None:
+def write_hypergraph(
+    retweets: pd.DataFrame, deadline: str
+) -> tuple[sparse.spmatrix, pd.Series]:
     """Write down the hyprgraph."""
     print("Building hyprgraph for", deadline)
 
-    users = set(retweets["source"]) | set(retweets["target"])
-    users = {u: i for i, u in enumerate(users)}
+    users = pd.Series(list(set(retweets["source"]) | set(retweets["target"])))
+    users_inv = {u: i for i, u in users.items()}
 
     hg_links = retweets["hyperlink"]
-    hg_source = retweets["source"].map(lambda x: users[x])
-    hg_target = retweets["target"].map(lambda x: users[x])
+    hg_source = retweets["source"].map(lambda x: users_inv[x])
+    hg_target = retweets["target"].map(lambda x: users_inv[x])
 
     tail = sparse.coo_matrix(
         (np.ones(len(retweets)), (hg_source, hg_links)),
-        shape=(len(users), len(retweets)),
+        shape=(len(users_inv), len(retweets)),
         dtype=int,
     ).tocsr()
     print("Tail", tail.shape, tail.nnz)
     head = sparse.coo_matrix(
         (np.ones(len(retweets)), (hg_target, hg_links)),
-        shape=(len(users), len(retweets)),
+        shape=(len(users_inv), len(retweets)),
         dtype=int,
     ).tocsr()
     print("Head", head.shape, head.nnz)
 
     # only get the largest component
     tail, head, comp_indx = extract_largest_component(tail, head)
-
-    users = pd.Series(list(users.keys()), index=list(users.values()))
     users = users[comp_indx].reset_index(drop=True)
-    print(users.shape, tail.shape, head.shape)
 
     sparse.save_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz", head)
     sparse.save_npz(DATAPATH / f"hyprgraph_{deadline}_tail.npz", tail)
-
     users.to_csv(DATAPATH / f"hyprgraph_{deadline}_usermap.csv.gz")
 
     return tail @ head.T, users
@@ -132,7 +199,7 @@ def load_graph(
 
 def extract_largest_component(
     tail: sparse.csr_matrix, head: sparse.csc_matrix
-) -> (sparse.csr_matrix, sparse.csr_matrix):
+) -> tuple[sparse.csr_matrix, sparse.csr_matrix, np.ndarray]:
     """Extract the largest component.
 
     remove users from smaller componets and retweets that involve those smaller components.
@@ -171,8 +238,6 @@ def extract_largest_component(
     )
     tail = tail @ retweets_to_keep_proj
     head = head @ retweets_to_keep_proj
-    print("Tail", tail.shape, tail.nnz)
-    print("Head", head.shape, head.nnz)
 
     return tail, head, largest_component
 
@@ -186,20 +251,29 @@ def parse_date(date: str | pd.Timestamp) -> pd.Timestamp | str:
 
 def main(deadline: pd.Timestamp | None = None) -> None:
     """Do the main."""
-    _deadline = "test" if deadline is None else parse_date(deadline)
+    if deadline is None:
+        _deadline = "test"
+    elif isinstance(deadline, str):
+        _deadline = deadline
+    elif isinstance(deadline, pd.Timestamp):
+        _deadline = parse_date(deadline)
     print("============")
     print(_deadline)
     print("============")
 
-    retweets = compute_graph(load_data(deadline))
-    adj, users = write_hypergraph(retweets, _deadline)
+    # retweets = compute_graph(load_data(deadline))
+    datagraph = load_data(deadline)
+    datagraph.largest_component()
+    datagraph.write(DATAPATH / f"hypergraph_{deadline}")
+
+    # adj, users = write_hypergraph(retweets, _deadline)
 
     # Directed graph
     graph = nx.from_scipy_sparse_array(
-        adj, create_using=nx.DiGraph, edge_attribute="weight"
+        datagraph.adj(), create_using=nx.DiGraph, edge_attribute="weight"
     )
     # node label is saved in hyprgraph_deadline_usermap.csv.gz
-    # nx.relabel_nodes(graph, mapping=dict(zip(users.index, users)))
+    # nx.relabel_nodes(graph, mapping=datagraph.users.to_dict())
     nx.write_graphml_lxml(
         graph,
         DATAPATH / f"retweet_graph_directed_{_deadline}.graphml",
