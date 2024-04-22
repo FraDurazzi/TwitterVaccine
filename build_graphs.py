@@ -115,35 +115,6 @@ def load_data(deadline: pd.Timestamp | None) -> Graph:
     return Graph(df_full[df_full.created_at < deadline])
 
 
-def compute_graph(df_full: pd.DataFrame) -> pd.DataFrame:
-    """Load the whole dataset and compute the (tweet, retweets) pairs.
-
-    columns:
-    id,created_at,text,user.id,user.screen_name,place,url,
-         retweeted_status.id,retweeted_status.user.id,retweeted_status.url,
-         annotation,user_annotation,lang
-
-    filter only tweets before a deadline.
-
-    users that retweet
-    """
-    # keep only retweets and the link to the original tweet.
-    retweets = df_full.dropna(subset="retweeted_status.id")[
-        ["id", "user.id", "retweeted_status.id", "retweeted_status.user.id"]
-    ]
-
-    # TODO(mauro): write down `id` -- `retweeted_status.id` -- anonymized(`user.id`)
-
-    # use meaningful headers
-    retweets.columns = pd.Index(["target", "hyperlink", "source"])
-
-    # I want hyperlinks counted from 0, 1... as this will become the column index.
-    hyperlinks = {k: i for i, k in enumerate(retweets["hyperlink"].unique())}
-    retweets["hyperlink"] = retweets["hyperlink"].map(lambda x: hyperlinks[x])
-    print("Num of retweets", len(retweets))
-    return retweets
-
-
 def write_hypergraph(
     retweets: pd.DataFrame, deadline: str
 ) -> tuple[sparse.spmatrix, pd.Series]:
@@ -261,7 +232,6 @@ def main(deadline: pd.Timestamp | None = None) -> None:
     print(_deadline)
     print("============")
 
-    # retweets = compute_graph(load_data(deadline))
     datagraph = load_data(deadline)
     datagraph.largest_component()
     datagraph.write(DATAPATH / f"hypergraph_{deadline}")
