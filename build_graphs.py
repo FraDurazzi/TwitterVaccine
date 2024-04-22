@@ -40,10 +40,10 @@ class Graph:
             lambda x: hyperlinks[x]
         )
 
-        users = pd.Series(
-            list(set(self._data["source"]) | set(self._data["target"])), name="userId"
+        self.users = pd.Series(
+            list(set(self._data["source"]) | set(self._data["target"])), name="user_id"
         ).rename_axis("user_index")
-        users_inv = {u: i for i, u in users.items()}
+        users_inv = {u: i for i, u in self.users.items()}
 
         hg_links = self._data["hyperlink"]
         hg_source = self._data["source"].map(lambda x: users_inv[x])
@@ -59,8 +59,6 @@ class Graph:
             shape=(len(users_inv), len(self._data)),
             dtype=int,
         ).tocsr()
-
-        self.users = users
 
     def info(self) -> None:
         """Print information."""
@@ -87,7 +85,10 @@ class Graph:
             basepath.parent / (basepath.name + "_ids.csv.gz")
         )
         # Save users map to indeces for internal use (not shareable).
-        self.users.to_csv(basepath.parent / (basepath.name + "_users.csv.gz"))
+        self.users.to_csv(
+            basepath.parent / (basepath.name + "_users.csv.gz"),
+            index_label="user_index",
+        )
 
 
 def load_data(deadline: pd.Timestamp | None) -> Graph:
