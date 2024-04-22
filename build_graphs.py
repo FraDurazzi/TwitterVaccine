@@ -40,7 +40,9 @@ class Graph:
             lambda x: hyperlinks[x]
         )
 
-        users = pd.Series(list(set(self._data["source"]) | set(self._data["target"])))
+        users = pd.Series(
+            list(set(self._data["source"]) | set(self._data["target"])), name="userId"
+        ).rename_axis("user_index")
         users_inv = {u: i for i, u in users.items()}
 
         hg_links = self._data["hyperlink"]
@@ -84,6 +86,8 @@ class Graph:
         self._data[["hyperlink", "retweeted_status.id"]].to_csv(
             basepath.parent / (basepath.name + "_ids.csv.gz")
         )
+        # Save users map to indeces for internal use (not shareable).
+        self.users.to_csv(basepath.parent / (basepath.name + "_users.csv.gz"))
 
 
 def load_data(deadline: pd.Timestamp | None) -> Graph:
@@ -115,43 +119,6 @@ def load_data(deadline: pd.Timestamp | None) -> Graph:
     if deadline is None:
         return Graph(df_full)
     return Graph(df_full[df_full.created_at < deadline])
-
-
-def write_hypergraph(
-    retweets: pd.DataFrame, deadline: str
-) -> tuple[sparse.spmatrix, pd.Series]:
-    """Write down the hyprgraph."""
-    print("Building hyprgraph for", deadline)
-
-    users = pd.Series(list(set(retweets["source"]) | set(retweets["target"])))
-    users_inv = {u: i for i, u in users.items()}
-
-    hg_links = retweets["hyperlink"]
-    hg_source = retweets["source"].map(lambda x: users_inv[x])
-    hg_target = retweets["target"].map(lambda x: users_inv[x])
-
-    tail = sparse.coo_matrix(
-        (np.ones(len(retweets)), (hg_source, hg_links)),
-        shape=(len(users_inv), len(retweets)),
-        dtype=int,
-    ).tocsr()
-    print("Tail", tail.shape, tail.nnz)
-    head = sparse.coo_matrix(
-        (np.ones(len(retweets)), (hg_target, hg_links)),
-        shape=(len(users_inv), len(retweets)),
-        dtype=int,
-    ).tocsr()
-    print("Head", head.shape, head.nnz)
-
-    # only get the largest component
-    tail, head, comp_indx = extract_largest_component(tail, head)
-    users = users[comp_indx].reset_index(drop=True)
-
-    sparse.save_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz", head)
-    sparse.save_npz(DATAPATH / f"hyprgraph_{deadline}_tail.npz", tail)
-    users.to_csv(DATAPATH / f"hyprgraph_{deadline}_usermap.csv.gz")
-
-    return tail @ head.T, users
 
 
 def load_graph(
@@ -237,8 +204,6 @@ def main(deadline: pd.Timestamp | None = None) -> None:
     datagraph = load_data(deadline)
     datagraph.largest_component()
     datagraph.write(DATAPATH / f"hypergraph_{_deadline}")
-
-    # adj, users = write_hypergraph(retweets, _deadline)
 
     # Directed graph
     graph = nx.from_scipy_sparse_array(
