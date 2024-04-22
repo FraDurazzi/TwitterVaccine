@@ -26,15 +26,17 @@ class Graph:
 
     def __init__(self, data: pd.DataFrame) -> None:
         """Initialize."""
-        self._data = data.rename(
+        self._data = data.dropna(subset="retweeted_status.id").rename(
             columns={
                 "user.id": "target",
                 "retweeted_status.user.id": "source",
             }
         )
         # I want hyperlinks counted from 0, 1... as this will become the column index.
-        hyperlinks = {k: i for i, k in enumerate(data["retweeted_status.id"].unique())}
-        self._data["hyperlink"] = data["retweeted_status.id"].map(
+        hyperlinks = {
+            k: i for i, k in enumerate(self._data["retweeted_status.id"].unique())
+        }
+        self._data["hyperlink"] = self._data["retweeted_status.id"].map(
             lambda x: hyperlinks[x]
         )
 
@@ -79,8 +81,8 @@ class Graph:
         """Write necessary data to disk."""
         sparse.save_npz(basepath.parent / (basepath.name + "_head.npz"), self.head)
         sparse.save_npz(basepath.parent / (basepath.name + "_tail.npz"), self.tail)
-        self._data[["id", "hyperlink", "retweeted_status.id"]].to_csv(
-            basepath.parent / (basepath.name + "_ids.npz")
+        self._data[["hyperlink", "retweeted_status.id"]].to_csv(
+            basepath.parent / (basepath.name + "_ids.csv.gz")
         )
 
 
@@ -264,7 +266,7 @@ def main(deadline: pd.Timestamp | None = None) -> None:
     # retweets = compute_graph(load_data(deadline))
     datagraph = load_data(deadline)
     datagraph.largest_component()
-    datagraph.write(DATAPATH / f"hypergraph_{deadline}")
+    datagraph.write(DATAPATH / f"hypergraph_{_deadline}")
 
     # adj, users = write_hypergraph(retweets, _deadline)
 
