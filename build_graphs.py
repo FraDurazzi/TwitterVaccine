@@ -19,6 +19,14 @@ from scipy import sparse
 
 DATAPATH = pathlib.Path("data")
 DATAPATH.mkdir(parents=True, exist_ok=True)
+DEADLINES = [
+    "test",
+    "2021-06-01",
+    "2022-01-01",
+    "2022-07-01",
+    "2023-01-01",
+    "2024-01-01",
+]
 
 
 class Graph:
@@ -91,7 +99,7 @@ class Graph:
         )
 
 
-def load_data(deadline: pd.Timestamp | None) -> Graph:
+def load_data(deadline: pd.Timestamp | str | None) -> Graph:
     """Load the full dataset."""
     from locals import RAW_DATAPATH
 
@@ -115,7 +123,7 @@ def load_data(deadline: pd.Timestamp | None) -> Graph:
         na_values=["", "[]"],
         parse_dates=["created_at"],
         lineterminator="\n",
-        nrows=100000 if deadline is None else None,
+        nrows=100000 if deadline == "test" else None,
     )
     if deadline is None:
         return Graph(df_full)
@@ -123,17 +131,17 @@ def load_data(deadline: pd.Timestamp | None) -> Graph:
 
 
 def load_graph(
-    deadline: pd.Timestamp,
+    deadline: pd.Timestamp | str,
 ) -> tuple[sparse.csr_matrix, sparse.csr_matrix, pd.Series]:
     """Load head tail and usermap."""
-    head = sparse.load_npz(DATAPATH / f"hyprgraph_{deadline}_head.npz")
-    tail = sparse.load_npz(DATAPATH / f"hyprgraph_{deadline}_tail.npz")
+    head = sparse.load_npz(DATAPATH / f"hypergraph_{deadline}_head.npz")
+    tail = sparse.load_npz(DATAPATH / f"hypergraph_{deadline}_tail.npz")
 
     users = pd.read_csv(
-        DATAPATH / f"hyprgraph_{deadline}_usermap.csv.gz",
-        index_col=0,
+        DATAPATH / f"hypergraph_{deadline}_users.csv.gz",
+        index_col="user_index",
         dtype="int64",
-    )["0"]
+    )["user_id"]
 
     return tail, head, users
 
@@ -190,11 +198,9 @@ def parse_date(date: str | pd.Timestamp) -> pd.Timestamp | str:
     return date.isoformat().split()[0].split("T")[0]
 
 
-def main(deadline: pd.Timestamp | None = None) -> None:
+def main(deadline: pd.Timestamp | str) -> None:
     """Do the main."""
-    if deadline is None:
-        _deadline = "test"
-    elif isinstance(deadline, str):
+    if isinstance(deadline, str):
         _deadline = deadline
     elif isinstance(deadline, pd.Timestamp):
         _deadline = parse_date(deadline)
@@ -202,7 +208,7 @@ def main(deadline: pd.Timestamp | None = None) -> None:
     print(_deadline)
     print("============")
 
-    datagraph = load_data(deadline)
+    datagraph = load_data(_deadline)
     datagraph.largest_component()
     datagraph.write(DATAPATH / f"hypergraph_{_deadline}")
 
@@ -211,7 +217,6 @@ def main(deadline: pd.Timestamp | None = None) -> None:
         datagraph.adj(), create_using=nx.DiGraph, edge_attribute="weight"
     )
     # node label is saved in hyprgraph_deadline_usermap.csv.gz
-    # nx.relabel_nodes(graph, mapping=datagraph.users.to_dict())
     nx.write_graphml_lxml(
         graph,
         DATAPATH / f"retweet_graph_directed_{_deadline}.graphml",
@@ -223,12 +228,5 @@ def main(deadline: pd.Timestamp | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
-    for deadline in [
-        "2021-06-01",
-        "2022-01-01",
-        "2022-07-01",
-        "2023-01-01",
-        "2024-01-01",
-    ]:
+    for deadline in DEADLINES:
         main(parse_date(deadline))

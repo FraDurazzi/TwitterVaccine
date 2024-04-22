@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from time import time
 
+import igraph
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ import sknetwork
 import tqdm
 from scipy import sparse
 
-from build_graphs import DATAPATH, load_graph
+from build_graphs import DEADLINES, load_graph
 
 
 def partition_core(
@@ -84,8 +85,7 @@ def partition_core(
             index=pd.Index(usermap, name="uid"),
         )
     return pd.Series(
-        _hydrate_(core_partition, core_periphery, proj_core, proj_periphery),
-        index=pd.Index(usermap, name="uid"),
+        _hydrate_(core_partition, core_periphery, proj_core, proj_periphery)
     )
 
 
@@ -295,9 +295,9 @@ def simplify_community_struct(
         keep = counts[counts > comm_size].index
     elif coverage > 0.0:
         # keep larger communities that cover at least coverage ratio of the network
-        keep = counts.cumsum() / len(community)
-        keep_num = len(keep[keep <= coverage]) + 1
-        keep = keep.iloc[:keep_num].index
+        cumsum = counts.cumsum() / len(community)
+        keep_num = len(cumsum[cumsum <= coverage]) + 1
+        keep = cumsum.iloc[:keep_num].index
 
     new_parts = {v: i for i, v in enumerate(keep)}
     return community.map(lambda x: new_parts.get(x, len(new_parts)))
@@ -305,12 +305,19 @@ def simplify_community_struct(
 
 def sparse2igraph(adjacency: sparse.spmatrix, **kwargs: dict) -> igraph.Graph:
     """Convert to igraph."""
-    import igraph
-
     i, j, v = sparse.find(adjacency)
     graph = igraph.Graph(edges=zip(i, j), **kwargs)
     graph.es["weight"] = v
     return graph
+
+
+def projector(partition: pd.Series) -> sparse.csr_matrix:
+    """Build a projector to the community space."""
+    return sparse.coo_matrix(
+        (np.ones(len(partition)), (partition, np.arange(len(partition)))),
+        shape=(partition.nunique(), len(partition)),
+        dtype="int64",
+    ).tocsr()
 
 
 def main(deadline: str) -> None:
@@ -318,27 +325,41 @@ def main(deadline: str) -> None:
     tail, head, usermap = load_graph(deadline)
     print("N users =", tail.shape[0])
     print("N edges =", head.nnz, tail.nnz)
-    p = pd.DataFrame()
+    communities = pd.DataFrame()
 
     pp = partition_core(tail, head, usermap, kind="leiden")
-    p["leiden"] = pp
-    p.index = pp.index
+    communities["leiden"] = pp
+    communities.index = pp.index
 
-    p["louvain"] = partition_core(tail, head, usermap, kind="sk_louvain")
+    communities["louvain"] = partition_core(tail, head, usermap, kind="sk_louvain")
 
-    # Infomap produce very small communities
-    # p["infomap"] = partition_core(tail, head, usermap, kind="infomap")
+    for part in communities.columns:
+        communities[part + "_90"] = simplify_community_struct(
+            communities[part], coverage=0.9
+        )
 
-    pstab = partition_core(tail, head, usermap, kind="stability")
-    for c in pstab.columns:
-        p[c] = pstab[c]
+    adjacency = tail @ head.T
+    emb_list = []
+    for part in communities.columns:
+        if "_" in part:
+            proj = projector(communities[part])
 
-    for part in p.columns:
-        p[part + "_90"] = simplify_community_struct(p[part], coverage=0.9)
+            out_freq = adjacency @ proj.T
+            in_freq = proj @ adjacency
 
-    p.to_csv(DATAPATH / f"communities_2_{deadline}.csv.gz")
+            freq = pd.DataFrame.sparse.from_spmatrix(out_freq)
+            freq += pd.DataFrame.sparse.from_spmatrix(in_freq.T)
+            freq.columns = [f"{part.split('_')[0]}_C{i}" for i in freq.columns]
+
+            emb_list.append(freq)
+
+    emb = pd.concat(emb_list, axis=1)
+    emb.index.names = ["user_index"]
+
+    print(emb)
+    emb.to_csv("data/communities_{deadline}.csv.gz")
 
 
 if __name__ == "__main__":
-    for deadline in ["test", "2021-06-01"]:
+    for deadline in DEADLINES:
         main(deadline)
