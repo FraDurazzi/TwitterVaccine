@@ -233,19 +233,20 @@ def preproc(df: pd.DataFrame,
         df_fut[i]=df_fut[i].divide(leid_sum)
     if(len(label)==2):
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
-    df_anno["label"]=df_anno["label"].map(label2id).dropna()
-    df_anno["label"]=df_anno["label"].apply(int)
-    return (df_anno,ids)
+    df_fut["label"]=df_fut["label"].map(label2id).dropna()
+    df_fut["label"]=df_fut["label"].apply(int)
+    return (df_anno,ids,df_fut)
 
 def main(DATA_INFO):
     path_df,name_df,dtype_df,path_com,names_com,dtype_com,path_pos,name_pos,seed,label,DATA_PATH=DATA_INFO
     df,df_fut=reading_merging(path_df,name_df,dtype_df,path_com,names_com,dtype_com,path_pos,name_pos)
-    df,ids,df_fut=preproc(df,df_fut,label,seed)
+    df,ids,df_fut=preproc(df,df_fut,labels,seed)
     id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
     id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
     df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',lineterminator='\n')
     df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',lineterminator='\n')
     df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',lineterminator='\n')
+    df_fut.to_csv(DATA_PATH+'fut.csv',lineterminator='\n')
 
 if __name__ == "__main__":
     path_df=LARGE_DATA_DIR+"df_full.csv.gz"
