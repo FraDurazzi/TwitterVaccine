@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from time import time
 
-import igraph
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -18,7 +17,10 @@ from build_graphs import DATAPATH, load_graph
 
 
 def partition_core(
-    tail: sparse.spmatrix, head: sparse.spmatrix, usermap: pd.Series, kind="sk_louvain"
+    tail: sparse.spmatrix,
+    head: sparse.spmatrix,
+    usermap: pd.Series,
+    kind: str = "sk_louvain",
 ) -> pd.Series:
     """Compute the partition of the core of the graph.
 
@@ -36,49 +38,111 @@ def partition_core(
 
     # users that either have no tweets and retweets just one other user or
     # have tweets that get retweeted only from another user and no retweets.
-    # In term of topology, these are dangling nodes with either one outgoing or ingoing link
-    dangling = np.logical_or(
+    # In term of topology, these are periphery nodes with either one outgoing or ingoing link
+    periphery = np.logical_or(
         np.logical_and(retweeters == 0, tweeters == 1),
         np.logical_and(retweeters == 1, tweeters == 0),
     )
-    core = np.argwhere(~dangling)[:, 1]
-    dangling = np.argwhere(dangling)[:, 1]
+    # list of indices of adjacency matrix:
+    core = np.argwhere(~periphery)[:, 1]
+    periphery = np.argwhere(periphery)[:, 1]
+    n_nodes = tail.shape[0]
+    n_p = len(periphery)
+    n_c = len(core)
 
-    proj_dangling = sparse.coo_matrix(
-        (np.ones_like(dangling), (dangling, np.arange(len(dangling)))),
-        shape=(tail.shape[0], len(dangling)),
+    # projector to the periphery subset of nodes
+    # shape: N x N_p
+    proj_periphery = sparse.coo_matrix(
+        (np.ones_like(periphery), (periphery, np.arange(len(periphery)))),
+        shape=(n_nodes, n_p),
     ).tocsr()
-    dangling_links = proj_dangling.T @ adjacency + (adjacency @ proj_dangling).T
-    i, j, _ = sparse.find(dangling_links)
-    # map from dangling indexes to their neighbors indexes.
-    dangling_map = {dangling[_i]: _j for _i, _j in zip(i, j)}
 
+    # projector to the core subset of nodes
+    # shape: N x N_c
     proj_core = sparse.coo_matrix(
         (np.ones_like(core), (core, np.arange(len(core)))),
-        shape=(tail.shape[0], len(core)),
+        shape=(n_nodes, n_c),
     ).tocsr()
     core_adj = proj_core.T @ (tail @ head.T).tocsr() @ proj_core
+
+    # Extract all links connected to the periphery
+    periphery_links = proj_periphery.T @ adjacency + (adjacency @ proj_periphery).T
+    # link from core to periphery N_p x N_c
+    core_periphery = periphery_links @ proj_core
 
     # compute the partition structure on the core of the network
     core_partition = partition(core_adj, kind=kind)
 
-    # map the index to the original index in adjacency
-    core_partition.index = core_partition.index.map(pd.Series(core))
-    # append dangling nodes with the original indexes (keys) and the community
-    # of the neighbor in the core (core_partition[c])
-    core_partition = pd.concat(
-        [
-            core_partition,
-            pd.Series(
-                [core_partition[c] for c in dangling_map.values()],
-                index=dangling_map.keys(),
-            ),
-        ]
+    if isinstance(core_partition, pd.DataFrame):
+        return pd.DataFrame(
+            {
+                c: _hydrate_(
+                    core_partition[c], core_periphery, proj_core, proj_periphery
+                )
+                for c in core_partition.columns
+            },
+            index=pd.Index(usermap, name="uid"),
+        )
+    return pd.Series(
+        _hydrate_(core_partition, core_periphery, proj_core, proj_periphery),
+        index=pd.Index(usermap, name="uid"),
     )
 
-    core_partition.index = core_partition.index.map(usermap)
 
-    return core_partition
+def _hydrate_(
+    core_partition: pd.Series,
+    core_periphery: sparse.spmatrix,
+    proj_core: sparse.spmatrix,
+    proj_periphery: sparse.spmatrix,
+) -> sparse.spmatrix:
+    """From a list of labels compute the projector from nodes to community space.
+
+    This function expects the network to be divided in two components:
+        - a core
+        - a periphery with nodes connected only to the core.
+
+    It takes the core and pariphery parts and join them
+    assigning the periphery nodes to its neighbor's community
+
+    Parameters
+    ----------
+    core_partition: pd.Series
+        partition of the nodes as a list of labels
+    core_periphery: sparse.spmatrix
+        adjacency matrix (only links between core and periphery)
+    proj_core: sparse.spmatrix
+        projector from nodes to node core
+    proj_periphery: sparse.spmatrix
+        projector from nodes to node periphery
+
+    Returns
+    -------
+    component_projector: np.ndarray
+        list of labels
+
+    """
+    # partition: N_c x N_comm
+    n_c = len(core_partition)
+    n_comm = core_partition.nunique()
+    # projector from core nodes to the communities
+    core_part_proj = sparse.coo_matrix(
+        (
+            np.ones_like(core_partition),
+            (core_partition.index.to_numpy(), core_partition.to_numpy()),
+        ),
+        shape=(n_c, n_comm),
+    ).tocsr()
+    # assign the periphery nodes to the corresponding core node communities.
+    # shape: N_p x N_comm
+    periphery_part = core_periphery @ core_part_proj
+
+    # partition of the whole adj
+    # shape: N x N_comm
+    full_partition = proj_core @ core_part_proj + proj_periphery @ periphery_part
+
+    # compress the partition to a list of class indexes
+    compressor = sparse.coo_matrix(np.arange(n_comm), shape=(1, n_comm)).tocsr()
+    return (full_partition @ compressor.T).toarray().astype(int).squeeze()
 
 
 def partition(
@@ -124,8 +188,7 @@ def partition(
             {
                 f"stab_{p_id}": stab["community_id"][p_id]
                 for p_id in stab["selected_partitions"]
-            },
-            index=usermap,
+            }
         )
 
     if kind in {"infomap", "leiden", "fastgreedy"}:
@@ -141,9 +204,9 @@ def partition(
     return p
 
 
-def compute_transition_matrix(matrix: sparse.csr_matrix, niter: int = 10000) -> tuple(
-    sparse.spmatrix, sparse.spmatrix
-):
+def compute_transition_matrix(
+    matrix: sparse.csr_matrix, niter: int = 10000
+) -> tuple[sparse.spmatrix, sparse.spmatrix]:
     r"""Return the transition matrix.
 
     Parameters
@@ -159,6 +222,7 @@ def compute_transition_matrix(matrix: sparse.csr_matrix, niter: int = 10000) -> 
         The transition matrix.
     v0 : np.matrix
         the steadystate
+
     """
     # marginal
     tot = matrix.sum(0).A1
@@ -198,17 +262,16 @@ def plot_comm_size(parts: pd.DataFrame) -> None:
         ncols=len(parts.columns), sharey=True, figsize=(3 * len(parts.columns), 5)
     )
 
+    print(parts.nunique())
     for ax, part in zip(axs, parts.columns):
         print(part)
         counts = parts[part].value_counts()
-        print(counts)
         counts = counts.sort_values(ascending=False).cumsum()
-        print(counts)
         counts /= len(parts[part])
         ax.scatter(range(len(counts)), counts)
         ax.semilogx()
         ax.set_title(part)
-        ax.set_xlim(1, 20)
+        # ax.set_xlim(1, 20)
         ax.axhline(0.9)
     axs[0].set_ylabel("Cumulative ratio.")
     plt.savefig("plot_community_sizes.pdf")
@@ -223,6 +286,8 @@ def simplify_community_struct(
     The reduction can be done with:
     - a community size cutoff
     - a coverage ratio
+
+    all the other (small) communities are merged together.
     """
     counts = community.value_counts().sort_values(ascending=False)
     if comm_size > 0:
@@ -240,6 +305,8 @@ def simplify_community_struct(
 
 def sparse2igraph(adjacency: sparse.spmatrix, **kwargs: dict) -> igraph.Graph:
     """Convert to igraph."""
+    import igraph
+
     i, j, v = sparse.find(adjacency)
     graph = igraph.Graph(edges=zip(i, j), **kwargs)
     graph.es["weight"] = v
@@ -249,7 +316,8 @@ def sparse2igraph(adjacency: sparse.spmatrix, **kwargs: dict) -> igraph.Graph:
 def main(deadline: str) -> None:
     """Do the main."""
     tail, head, usermap = load_graph(deadline)
-    adj = tail @ head.T
+    print("N users =", tail.shape[0])
+    print("N edges =", head.nnz, tail.nnz)
     p = pd.DataFrame()
 
     pp = partition_core(tail, head, usermap, kind="leiden")
@@ -265,15 +333,12 @@ def main(deadline: str) -> None:
     for c in pstab.columns:
         p[c] = pstab[c]
 
-    plot_comm_size(p)
-
     for part in p.columns:
-        p[part + "_5000"] = simplify_community_struct(p[part], comm_size=5000)
         p[part + "_90"] = simplify_community_struct(p[part], coverage=0.9)
 
-    p.to_csv(DATAPATH / f"communities_{deadline}.csv.gz")
+    p.to_csv(DATAPATH / f"communities_2_{deadline}.csv.gz")
 
 
 if __name__ == "__main__":
-    for deadline in ["2021-06-01"]:
+    for deadline in ["test", "2021-06-01"]:
         main(deadline)
