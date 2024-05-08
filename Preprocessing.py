@@ -16,8 +16,11 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import json
+import re,os
 from typing import Union
 from sklearn.model_selection import train_test_split
+from sentence_transformers import SentenceTransformer
+from sklearn.preprocessing import StandardScaler
 from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 labels=['ProVax','AntiVax','Neutral']
@@ -42,6 +45,39 @@ def undersampling(df: pd.DataFrame, random_state : Union[int,None] =None) -> pd.
         df[df.label == 'Neutral'].sample(l, random_state=random_state)
     ], ignore_index=False)
     return out
+
+def rescale(df: pd.DataFrame, columns: list[str] = ["x_pos", "y_pos"]) -> pd.DataFrame:
+    """
+    Rescale selected columns in the DataFrame using StandardScaler.
+
+    Parameters:
+    -----------
+    df : pandas DataFrame
+        Input DataFrame containing the columns to be rescaled.
+    columns : list of str, optional
+        Names of the columns to be rescaled. Default is ["x_pos", "y_pos"].
+
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with the specified columns rescaled using StandardScaler.
+
+    Notes:
+    ------
+    This function uses StandardScaler from scikit-learn to standardize the features by removing the mean and scaling
+    to unit variance.
+    """
+    # Initialize StandardScaler
+    rescale = StandardScaler()
+    
+    # Fit the scaler to the specified columns
+    rescale.fit(df[columns])
+    
+    # Transform and return the scaled columns
+    return rescale.transform(df[columns])
+
+
+
 
 def reading_merging(path_df: str,
                     name_df: list,
@@ -139,6 +175,43 @@ def reading_merging(path_df: str,
     df=df.merge(df_pos,how="left",left_on="user.id",right_index=True)
     return df,df_future
 
+def embedding(df: pd.DataFrame,
+              model_name: str = 'm-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0') -> pd.DataFrame:
+    """
+    Compute sentence embeddings using a pre-trained transformer model.
+
+    Parameters:
+    -----------
+    df : pandas DataFrame
+        Input DataFrame containing the sentences for which embeddings are to be computed.
+    model_name : str, optional
+        Name or path of the pre-trained transformer model to be used for computing embeddings.
+        Default is 'm-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0'.
+
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with additional columns containing the computed embeddings for each sentence.
+
+    Notes:
+    ------
+    This function utilizes the SentenceTransformer library to encode sentences into fixed-dimensional vectors
+    using pre-trained transformer models.
+    """
+    # Load the pre-trained transformer model
+    model = SentenceTransformer(model_name)
+    
+    # Define column names for embedding columns
+    list_cols = ["emb_col_" + str(i) for i in range(768)]
+    
+    # Copy the input DataFrame to avoid modifying the original
+    df_out = df.copy()
+    
+    # Compute embeddings for each sentence in the DataFrame
+    df_out[list_cols] = model.encode(df_out["sentence"], show_progress_bar=True)
+    
+    return df_out
+
 def preproc(df: pd.DataFrame,
             df_fut:pd.DataFrame,
             label: list,
@@ -199,6 +272,7 @@ def preproc(df: pd.DataFrame,
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
     df_anno["label"]=df_anno["label"].map(label2id).dropna()
     df_anno["label"]=df_anno["label"].apply(int)
+    df_anno[["x_pos","y_pos"]]=rescale(df_anno)
     #PREPROCESSING ON SECOND DATASET
     df_fut.loc[:,'text']=df_fut['text'].apply(lambda x: x.replace('\n',' ') #Unix newline character
                                                             .replace('\t','') #Tab character
@@ -235,7 +309,8 @@ def preproc(df: pd.DataFrame,
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
     df_fut["label"]=df_fut["label"].map(label2id).dropna()
     df_fut["label"]=df_fut["label"].apply(int)
-    return (df_anno,ids,df_fut)
+    df_fut[["x_pos","y_pos"]]=rescale(df_fut)
+    return (embedding(df_anno),ids,embedding(df_fut))
 
 def main(DATA_INFO):
     path_df,name_df,dtype_df,path_com,names_com,dtype_com,path_pos,name_pos,seed,label,DATA_PATH=DATA_INFO
