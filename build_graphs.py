@@ -16,6 +16,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from scipy import sparse
+from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 
 DATAPATH = pathlib.Path("data")
 DATAPATH.mkdir(parents=True, exist_ok=True)
@@ -104,7 +105,7 @@ def load_data(deadline: pd.Timestamp | str | None) -> Graph:
     from locals import RAW_DATAPATH
 
     df_full = pd.read_csv(
-        RAW_DATAPATH / "df_full.csv.gz",
+        LARGE_DATA_DIR + "df_full.csv.gz",
         index_col="id",
         dtype={
             "id": str,
