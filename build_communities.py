@@ -344,12 +344,14 @@ def main(deadline: str) -> None:
         if "_" in part:
             proj = projector(communities[part])
 
+            # sum number of retweets between user and community and viceversa
             out_freq = adjacency @ proj.T
             in_freq = proj @ adjacency
 
             freq = pd.DataFrame.sparse.from_spmatrix(out_freq)
             freq += pd.DataFrame.sparse.from_spmatrix(in_freq.T)
             freq.columns = [f"{part.split('_')[0]}_C{i}" for i in freq.columns]
+            freq[part.split("_")[0]] = communities[part]
 
             emb_list.append(freq)
 
@@ -357,7 +359,7 @@ def main(deadline: str) -> None:
     emb.index.names = ["user_index"]
 
     print(emb)
-    emb.to_csv("data/communities_{deadline}.csv.gz")
+    emb.to_csv(f"data/communities_{deadline}.csv.gz")
 
 
 if __name__ == "__main__":
