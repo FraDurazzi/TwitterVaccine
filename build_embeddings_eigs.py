@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Eigenvector embeddings."""
+"""Eigenvector embeddings.
+
+Prepare the adjacency matrix for ./build_embeddings_eigs.m
+Run this before that.
+"""
 
 import time
 

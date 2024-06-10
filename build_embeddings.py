@@ -88,7 +88,7 @@ def embed_fa2(
     adj: sparse.spmatrix, init_pos: pd.DataFrame | None, n_cycles: int = 50
 ) -> pd.DataFrame:
     """Embed into a 2D."""
-    fa = ForceAtlas2()
+    fa = ForceAtlas2(strongGravityMode=False, scalingRatio=3.0, gravity=3.0)
     if init_pos is None:
         pos = None
     else:

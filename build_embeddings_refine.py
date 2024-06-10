@@ -15,12 +15,24 @@ MAX_LIM = 10000
 
 def load(deadline: str) -> pd.DataFrame:
     """Load updated positions if available otherwise the old ones."""
+    for path in [
+        pathlib.Path(x)
+        for x in [
+            f"data/embedding_fa2_stronggrav_{deadline}_refined.csv.gz",
+            f"data/embedding_fa2_stronggrav_{deadline}.csv.gz",
+            f"data/embedding_fa2_{deadline}_refined.csv.gz",
+            f"data/embedding_fa2_{deadline}.csv.gz",
+        ]
+    ]:
+        if path.is_file():
+            break
+
     old_pos = pd.read_csv(f"data/embedding_fa2_{deadline}.csv.gz", index_col=0)
 
-    path = pathlib.Path(f"data/embedding_fa2_{deadline}_refined.csv.gz")
-    if not path.exists():
-        print("Use old positions")
-        return old_pos
+    # path = pathlib.Path(f"data/embedding_fa2_{deadline}_refined.csv.gz")
+    # if not path.exists():
+    #     print("Use old positions")
+    #     return old_pos
 
     print("Start from updated positions")
     new_pos = pd.read_csv(path, index_col=0)
@@ -34,7 +46,7 @@ def refine_positions(
     """Refine and save positions with optional fixed positions."""
     positions = load(deadline)
 
-    # communities (for plotting)
+    # communities (just for plotting)
     comms = pd.read_csv(f"data/communities_{deadline}.csv.gz", index_col="user_index")
 
     # linking pattern (to calculate the adjacency matrix)
@@ -51,23 +63,22 @@ def refine_positions(
             .set_index(positions.index)
             .dropna()
         )
+        positions.loc[fixed_pos.index] = fixed_pos
 
     for i in range(cycles):
         print(f" Cycle {i}  for {deadline}")
-        new_pos = embed_fa2(adj, positions, n_cycles=50)
-        new_pos.to_csv(f"./data/embedding_fa2_{deadline}_refined.csv.gz")
-
-        positions = new_pos
-
-        if deadline_fix is not None:
-            positions.loc[new_pos.index] = new_pos
+        positions = embed_fa2(adj, positions, n_cycles=500)
+        positions.to_csv(f"./data/embedding_fa2_stronggrav_{deadline}_refined.csv.gz")
 
         asyncio.run(
             plot_positions(
                 pd.concat([positions, comms], axis=1),
-                f"./data/embedding_fa2_{deadline}_refined.png",
+                f"./data/embedding_fa2_stronggrav_{deadline}_refined.png",
             )
         )
+
+        if deadline_fix is not None:
+            positions.loc[fixed_pos.index] = fixed_pos
 
 
 async def plot_positions(positions: pd.DataFrame, fname: str) -> None:
@@ -92,13 +103,11 @@ async def plot_positions(positions: pd.DataFrame, fname: str) -> None:
 def main() -> None:
     """Do the main."""
 
-    refine_positions(DEADLINES[1], cycles=20)
+    refine_positions(DEADLINES[1], cycles=1)
 
     with Executor(max_workers=8) as exc:
         for deadline in DEADLINES[2:]:
-            exc.submit(refine_positions, deadline, deadline_fix=DEADLINES[1], cycles=10)
-    for deadline in DEADLINES[2:]:
-        refine_positions(deadline, DEADLINES[1], cycles=10)
+            exc.submit(refine_positions, deadline, deadline_fix=DEADLINES[1], cycles=1)
 
 
 if __name__ == "__main__":
