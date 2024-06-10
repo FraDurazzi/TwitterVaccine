@@ -190,8 +190,11 @@ def partition(
                 for p_id in stab["selected_partitions"]
             }
         )
+    elif kind == "labelpropagation":
+        graph_ig = sparse2igraph(adj)
+        p = graph_ig.community_label_propagation(weights="weight")
 
-    if kind in {"infomap", "leiden", "fastgreedy"}:
+    if kind in {"infomap", "leiden", "fastgreedy", "labelpropagation"}:
         # convert igraph result to pd.Series
         p = {u: ip for ip, _p in enumerate(p) for u in _p}
         p = pd.Series(p.values(), index=p.keys())
@@ -287,7 +290,7 @@ def simplify_community_struct(
     - a community size cutoff
     - a coverage ratio
 
-    all the other (small) communities are merged together.
+    all the other (small) communities are merged together in one big last community.
     """
     counts = community.value_counts().sort_values(ascending=False)
     if comm_size > 0:
@@ -332,6 +335,9 @@ def main(deadline: str) -> None:
     communities.index = pp.index
 
     communities["louvain"] = partition_core(tail, head, usermap, kind="sk_louvain")
+    communities["labelpropagation"] = partition_core(
+        tail, head, usermap, kind="labelpropagation"
+    )
 
     for part in communities.columns:
         communities[part + "_90"] = simplify_community_struct(
