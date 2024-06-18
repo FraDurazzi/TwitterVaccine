@@ -14,7 +14,7 @@ NEIGS = 10;
 
 for i = 1:rows(DEADLINES)
     fprintf("==== %d deadline %s\n", i, DEADLINES{i})
-    fname = sprintf("./data/adj_%s.mat.gz", DEADLINES{i});
+    fname = sprintf("./data/adj_%s.m.gz", DEADLINES{i});
 
     % read the adjacency matrix as a list of weighted edges (i, j, A_ij)
     M = load(fname);
@@ -42,5 +42,20 @@ for i = 1:rows(DEADLINES)
     % drop the Frobenious eigenvector
     bevecs = bevecs(:, 1:NEIGS);
     fname = sprintf("./data/embedding_laplacian_%s.txt.gz", DEADLINES{i});
+    save("-ascii","-zip", fname, "bevecs");
+
+    % normalized laplacian
+    invdeg = 1.0 ./ sqrt(deg);
+    normlap = diag(invdeg) * lap * diag(invdeg);
+
+    % compute the eigenpairs
+    % opt.tol=1e-9;
+    opt.issym=true;
+    [bevecs, bevals] = eigs(normlap, NEIGS + 1, 'sm', opt);
+    bevals = diag(bevals);
+
+    % drop the Frobenious eigenvector
+    bevecs = bevecs(:, 1:NEIGS);
+    fname = sprintf("./data/embedding_norm_laplacian_%s.txt.gz", DEADLINES{i});
     save("-ascii","-zip", fname, "bevecs");
 end
