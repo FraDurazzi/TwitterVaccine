@@ -68,14 +68,9 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
         )
         data = data.sort_index()
     elif kind == "fa2":
-        try:
-            data = pd.read_csv(
-                DIR / f"embedding_fa2_stronggrav_{deadline}_refined.csv.gz", index_col=0
-            )
-        except FileNotFoundError:
-            data = pd.read_csv(
-                DIR / f"embedding_fa2_{deadline}.csv.gz", index_col=0
-            ).drop(columns="user_id")
+        data = pd.read_csv(
+            DIR / f"embedding_fa2_stronggrav_{deadline}_refined.csv.gz", index_col=0
+        ).drop(columns='user_id', errors='ignore')
 
         data = data / data.abs().mean(axis=0)
     else:
