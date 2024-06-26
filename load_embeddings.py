@@ -53,8 +53,6 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
         data = data.drop(columns=data.columns[0])
         data = data.abs()
         data *= len(data) / np.linalg.norm(data, ord=1,axis=0)
-        print(len(data))
-        print(data.sum())
     elif kind == "n2v":
         data = pd.read_csv(
             DIR / f"embedding_n2v_{deadline}.txt",
