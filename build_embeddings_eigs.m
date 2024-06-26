@@ -34,7 +34,7 @@ for i = 1:rows(DEADLINES)
     lap = diag(deg) - mat;
 
     % compute the eigenpairs
-    % opt.tol=1e-9;
+    opt.tol=1e-9;
     opt.issym=true;
     [bevecs, bevals] = eigs(lap, NEIGS + 1, 'sm', opt);
     bevals = diag(bevals);
