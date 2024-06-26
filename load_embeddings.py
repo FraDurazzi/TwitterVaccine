@@ -5,16 +5,13 @@ The embeddings will be a pandas dataframe with user_id as index and all the embe
 """
 
 import numpy as np
-import os
 from pathlib import Path
 
 import pandas as pd
 
-DIR = (
-    Path("data")
-    if os.getlogin() == "mauro"
-    else Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data/")
-)
+STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data/")
+
+DIR = STOR if STOR.is_dir() else Path("data")
 
 
 def load(kind: str, deadline: str) -> pd.DataFrame:
