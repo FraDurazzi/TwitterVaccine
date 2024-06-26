@@ -71,7 +71,7 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
 
         data = data / data.abs().mean(axis=0)
     else:
-        return None
+        raise NotImplementedError()
 
     users = pd.read_csv(
         DIR / f"hypergraph_{deadline}_users.csv.gz", index_col="user_index"
