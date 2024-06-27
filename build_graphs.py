@@ -16,19 +16,13 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from scipy import sparse
+
 # from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 from dirs import LARGE_DATA_DIR
 
-DATAPATH = pathlib.Path("data")
+DATAPATH = pathlib.Path("data_tw_tight")
 DATAPATH.mkdir(parents=True, exist_ok=True)
-DEADLINES = [
-    "test",
-    "2021-06-01",
-    "2022-01-01",
-    "2022-07-01",
-    "2023-01-01",
-    "2024-01-01",
-]
+DEADLINES = {"pre": "2021-02-01", "post": "2023-03-15"}
 
 
 class Graph:
@@ -83,6 +77,12 @@ class Graph:
         self.users = self.users.iloc[comp_indx].reset_index(drop=True)
         # self._data do not need to be shrinked since the hyperlink dimension is not touched.
 
+    def n_users(self) -> int:
+        return self.tail.shape[0]
+
+    def n_links(self) -> int:
+        return self.tail.shape[1]
+
     def adj(self) -> sparse.spmatrix:
         """Return the sparse adjacency matrix."""
         return self.tail @ self.head.T
@@ -103,7 +103,8 @@ class Graph:
 
 def load_data(deadline: pd.Timestamp | str | None) -> Graph:
     """Load the full dataset."""
-    from locals import RAW_DATAPATH
+    if isinstance(deadline, str):
+        deadline = parse_date(deadline)
 
     df_full = pd.read_csv(
         LARGE_DATA_DIR / "df_full.csv.gz",
@@ -125,7 +126,6 @@ def load_data(deadline: pd.Timestamp | str | None) -> Graph:
         na_values=["", "[]"],
         parse_dates=["created_at"],
         lineterminator="\n",
-        nrows=100000 if deadline == "test" else None,
     )
     if deadline is None:
         return Graph(df_full)
@@ -200,19 +200,15 @@ def parse_date(date: str | pd.Timestamp) -> pd.Timestamp | str:
     return date.isoformat().split()[0].split("T")[0]
 
 
-def main(deadline: pd.Timestamp | str) -> None:
+def main(dlname: str, deadline: str) -> None:
     """Do the main."""
-    if isinstance(deadline, str):
-        _deadline = deadline
-    elif isinstance(deadline, pd.Timestamp):
-        _deadline = parse_date(deadline)
     print("============")
-    print(_deadline)
+    print(deadline)
     print("============")
 
-    datagraph = load_data(_deadline)
+    datagraph = load_data(deadline)
     datagraph.largest_component()
-    datagraph.write(DATAPATH / f"hypergraph_{_deadline}")
+    datagraph.write(DATAPATH / f"hypergraph_{dlname}")
 
     # Directed graph
     graph = nx.from_scipy_sparse_array(
@@ -221,14 +217,14 @@ def main(deadline: pd.Timestamp | str) -> None:
     # node label is saved in hyprgraph_deadline_usermap.csv.gz
     nx.write_graphml_lxml(
         graph,
-        DATAPATH / f"retweet_graph_directed_{_deadline}.graphml",
+        DATAPATH / f"retweet_graph_directed_{dlname}.graphml",
     )
     nx.write_graphml_lxml(
         graph.to_undirected(),
-        DATAPATH / f"retweet_graph_undirected_{_deadline}.graphml",
+        DATAPATH / f"retweet_graph_undirected_{dlname}.graphml",
     )
 
 
 if __name__ == "__main__":
-    for deadline in DEADLINES:
-        main(parse_date(deadline))
+    for dlname, deadline in DEADLINES.items():
+        main(dlname, deadline)

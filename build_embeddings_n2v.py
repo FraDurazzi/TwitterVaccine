@@ -5,7 +5,7 @@ import networkx as nx
 import node2vec
 import numpy as np
 
-from build_graphs import DEADLINES, load_graph
+from build_graphs import DATAPATH, DEADLINES, load_graph
 
 NUM_EIGS = 11
 
@@ -32,7 +32,7 @@ def main() -> None:
         )
         model = n2v.fit()
 
-        model.wv.save_word2vec_format(f"./data/embedding_n2v_{deadline}.txt")
+        model.wv.save_word2vec_format(DATAPATH / f"embedding_n2v_{deadline}.txt")
 
 
 if __name__ == "__main__":

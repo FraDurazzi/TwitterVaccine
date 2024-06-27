@@ -1,20 +1,13 @@
 %% this script will compute the smaller eigenvectors of the laplacian.
 % There was a need of rewriting this in Octave because scipy is very slow
 
-DEADLINES = {
-    "test",
-    "2021-06-01",
-    "2022-01-01",
-    "2022-07-01",
-    "2023-01-01",
-    "2024-01-01",
-};
+DEADLINES = {'pre'; 'post'};
 
 NEIGS = 10;
 
 for i = 1:rows(DEADLINES)
     fprintf("==== %d deadline %s\n", i, DEADLINES{i})
-    fname = sprintf("./data/adj_%s.m.gz", DEADLINES{i});
+    fname = sprintf("./data_tw_tight/adj_%s.m.gz", DEADLINES{i});
 
     % read the adjacency matrix as a list of weighted edges (i, j, A_ij)
     M = load(fname);
@@ -41,7 +34,7 @@ for i = 1:rows(DEADLINES)
 
     % drop the Frobenious eigenvector
     bevecs = bevecs(:, 1:NEIGS);
-    fname = sprintf("./data/embedding_laplacian_%s.txt.gz", DEADLINES{i});
+    fname = sprintf("./data_tw_tight/embedding_laplacian_%s.txt.gz", DEADLINES{i});
     save("-ascii","-zip", fname, "bevecs");
 
     % normalized laplacian
@@ -56,6 +49,6 @@ for i = 1:rows(DEADLINES)
 
     % drop the Frobenious eigenvector
     bevecs = bevecs(:, 1:NEIGS);
-    fname = sprintf("./data/embedding_norm_laplacian_%s.txt.gz", DEADLINES{i});
+    fname = sprintf("./data_tw_tight/embedding_norm_laplacian_%s.txt.gz", DEADLINES{i});
     save("-ascii","-zip", fname, "bevecs");
 end

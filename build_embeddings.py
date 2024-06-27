@@ -8,7 +8,7 @@ import pandas as pd
 from fa2_modified import ForceAtlas2
 from scipy import sparse
 
-from build_graphs import DEADLINES, load_graph
+from build_graphs import DATAPATH, DEADLINES, load_graph
 
 
 def main() -> None:
@@ -22,20 +22,12 @@ def main() -> None:
 
         adj = tail @ head.T
 
-        if deadline == DEADLINES[0]:
-            # use a random initial position
-            pos = embed_fa2(adj, init_pos=None, n_cycles=1000)
-        elif deadline == DEADLINES[1]:
+        if deadline == "pre":
             # use positions from `test`
-            init_pos = set_initial_pos(positions[DEADLINES[0]], usermap)
-            pos = embed_fa2(
-                adj,
-                init_pos=init_pos,
-                n_cycles=300,
-            )
+            pos = embed_fa2(adj, init_pos=None, n_cycles=300)
         else:
             # use positions from `2021-06-01`
-            init_pos = set_initial_pos(positions[DEADLINES[1]], usermap)
+            init_pos = set_initial_pos(positions["pre"], usermap)
             pos = embed_fa2(
                 adj,
                 init_pos=init_pos,
@@ -43,11 +35,7 @@ def main() -> None:
             )
 
         positions[deadline] = pd.concat([usermap, pos], axis=1)
-
-        if deadline != DEADLINES[0]:
-            pass
-
-        positions[deadline].to_csv(f"data/embedding_fa2_{deadline}.csv.gz")
+        positions[deadline].to_csv(DATAPATH / f"embedding_fa2_{deadline}.csv.gz")
 
 
 def set_initial_pos(old_pos: pd.DataFrame, new_usermap: pd.Series) -> pd.DataFrame:

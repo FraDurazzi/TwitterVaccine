@@ -4,15 +4,14 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn import decomposition
 
-from build_graphs import DEADLINES
+from build_graphs import DATAPATH, DEADLINES
 from load_embeddings import load
 
-DEADLINES = DEADLINES[1:]
-
-USE = "louvain"
+USE = "norm_laplacian"
 USE = "n2v"
-USE = "laplacian"
 USE = "fa2"
+USE = "louvain"
+USE = "laplacian"
 
 
 def embed2d(input: pd.DataFrame) -> pd.DataFrame:
@@ -34,11 +33,13 @@ def crop(emb1: pd.Series, emb2: pd.Series, q: float) -> dict[str, list]:
         xlims = xlim.to_list()
     else:
         xlims = [-xlim.abs().max(), xlim.abs().max()]
+        # xlims = xlim.to_list()
 
     if ylim.iloc[0] > 0:
         ylims = ylim.to_list()
     else:
         ylims = [-ylim.abs().max(), ylim.abs().max()]
+        # ylims = ylim.to_list()
 
     return {"xlim": xlims, "ylim": ylims}
 
@@ -63,18 +64,20 @@ def main() -> None:
             [x.argmax() for x in emb_comms.to_numpy()], index=emb_comms.index
         )
 
-        emb = emb.iloc[:, -2:]
-        emb1 = emb.iloc[:, -1]
-        emb2 = emb.iloc[:, -2]
+        if False:
+            if deadline == DEADLINES[0]:
+                # train = umap.UMAP(n_neighbors=50).fit(emb)
+                train = decomposition.PCA().fit(emb)
+            synth = train.transform(emb)
+            emb1 = pd.Series(synth[:, 0])
+            emb2 = pd.Series(synth[:, 1])
+        else:
+            emb1 = emb.iloc[:, -1]
+            emb2 = emb.iloc[:, -2]
 
-        if USE == "fa2":
-            emb1 = emb1 / emb1.abs().mean()
-            emb2 = emb2 / emb2.abs().mean()
-
-        opts = {"cmap": "rainbow", "s": 0.2, "alpha": 0.05, "lw": 0}
+        opts = {"cmap": "rainbow", "s": 0.2, "alpha": 0.02, "lw": 0}
         ax_opts: dict[str, list] = {"xticklabels": [], "yticklabels": []}
-        ax_opts.update(crop(emb1, emb2, 0.01))
-        print(ax_opts)
+        ax_opts.update(crop(emb1, emb2, 0.001))
 
         ax = axs[0]
         ax.scatter(emb1, emb2, c=comm, **opts)
@@ -84,16 +87,12 @@ def main() -> None:
         ax.scatter(emb1, emb2, c=comm, **opts)
         ax.grid()
 
-        if deadline == DEADLINES[0]:
-            ax_opts.update(crop(emb1, emb2, 0.1))
-
+        if deadline == "pre":
+            ax_opts.update(crop(emb1, emb2, 0.01))
             ax.set(ylabel="zoom", **ax_opts)
 
-        # ax.hist(emb1, bins=100, lw=2, log=True)
-        # ax.semilogy()
-
     fig.tight_layout()
-    fig.savefig("./data/embedding_laplacian.png", dpi=200)
+    fig.savefig("./plots/embedding_laplacian.png", dpi=200)
 
 
 if __name__ == "__main__":

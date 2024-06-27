@@ -14,7 +14,7 @@ import sknetwork
 import tqdm
 from scipy import sparse
 
-from build_graphs import DEADLINES, load_graph
+from build_graphs import DATAPATH, DEADLINES, load_graph
 
 
 def partition_core(
@@ -271,7 +271,7 @@ def plot_comm_size(parts: pd.DataFrame) -> None:
         counts = parts[part].value_counts()
         counts = counts.sort_values(ascending=False).cumsum()
         counts /= len(parts[part])
-        ax.scatter(range(len(counts)), counts)
+        ax.scatter(range(len(counts)), counts.to_numpy())
         ax.semilogx()
         ax.set_title(part)
         # ax.set_xlim(1, 20)
@@ -364,8 +364,7 @@ def main(deadline: str) -> None:
     emb = pd.concat(emb_list, axis=1)
     emb.index.names = ["user_index"]
 
-    print(emb)
-    emb.to_csv(f"data/communities_{deadline}.csv.gz")
+    emb.to_csv(DATAPATH / f"communities_{deadline}.csv.gz")
 
 
 if __name__ == "__main__":

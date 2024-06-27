@@ -5,15 +5,15 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from build_graphs import DEADLINES, load_graph
+from build_graphs import DATAPATH, DEADLINES, load_graph
 
 
 def load_base_community(
-    kind: str, drop_basket: bool = True
+    kind: str, drop_basket: bool = False
 ) -> tuple[sparse.spmatrix, pd.Series]:
     """Load the base community struct."""
     community = pd.read_csv(
-        "./data/communities_2021-06-01.csv.gz", index_col="user_index"
+        DATAPATH / "communities_pre.csv.gz", index_col="user_index"
     )[kind]
 
     if drop_basket:
@@ -26,7 +26,7 @@ def load_base_community(
     ).tocsr()
 
     users = pd.read_csv(
-        "./data/hypergraph_2021-06-01_users.csv.gz", index_col="user_index"
+        DATAPATH / "hypergraph_pre_users.csv.gz", index_col="user_index"
     ).loc[community.index]["user_id"]
     users = users.reset_index(drop=True)
 
@@ -49,7 +49,7 @@ def proj_to_base(users: pd.Series, base_users: pd.Series) -> sparse.spmatrix:
 def main(kind: str) -> None:
     """Do the main."""
     print("---", kind, "---", sep="\n")
-    comm_proj, base_users = load_base_community(kind, drop_basket=True)
+    comm_proj, base_users = load_base_community(kind, drop_basket=False)
 
     for deadline in DEADLINES:
         print(deadline)
@@ -70,7 +70,7 @@ def main(kind: str) -> None:
 
         # write to file
         pd.DataFrame(cols).astype(int).to_csv(
-            f"./data/embedding_community_{kind}_{deadline}.csv.gz"
+            DATAPATH / f"embedding_community_{kind}_{deadline}.csv.gz"
         )
 
 
