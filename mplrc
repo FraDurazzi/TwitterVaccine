@@ -1,0 +1,17 @@
+axes.edgecolor: 777777
+axes.linewidth: 1.5
+font.family: Roboto
+font.size: 16
+
+grid.color: 0.7
+grid.alpha: 0.5
+
+legend.fancybox: false
+lines.linewidth: 1
+mathtext.fontset: cm
+xtick.color: 777777
+xtick.labelcolor: 777777
+xtick.labelsize: small
+ytick.color: 777777
+ytick.labelcolor: 777777
+ytick.labelsize: small
