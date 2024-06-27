@@ -4,14 +4,14 @@
 The embeddings will be a pandas dataframe with user_id as index and all the embedding values as entries.
 """
 
-import numpy as np
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data/")
+STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data_tw_tight/")
 
-DIR = STOR if STOR.is_dir() else Path("data")
+DIR = STOR if STOR.is_dir() else Path("data_tw_tight")
 
 
 def load(kind: str, deadline: str) -> pd.DataFrame:
@@ -52,7 +52,7 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
         )
         data = data.drop(columns=data.columns[0])
         data = data.abs()
-        data *= len(data) / np.linalg.norm(data, ord=1,axis=0)
+        data *= len(data) / np.linalg.norm(data, ord=1, axis=0)
     elif kind == "n2v":
         data = pd.read_csv(
             DIR / f"embedding_n2v_{deadline}.txt",
@@ -65,7 +65,7 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
     elif kind == "fa2":
         data = pd.read_csv(
             DIR / f"embedding_fa2_stronggrav_{deadline}_refined.csv.gz", index_col=0
-        ).drop(columns='user_id', errors='ignore')
+        ).drop(columns="user_id", errors="ignore")
 
         data = data / data.abs().mean(axis=0)
     else:
