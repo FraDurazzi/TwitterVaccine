@@ -23,6 +23,8 @@ from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import StandardScaler
 from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
+from build_graphs import DEADLINES
+from load_embeddings import load
 labels=['ProVax','AntiVax','Neutral']
 random_state=42
 
@@ -46,7 +48,7 @@ def undersampling(df: pd.DataFrame, random_state : Union[int,None] =None) -> pd.
     ], ignore_index=False)
     return out
 
-def rescale(df: pd.DataFrame, columns: list[str] = ["x_pos", "y_pos"]) -> pd.DataFrame:
+def rescale(df: pd.DataFrame, columns: list[str] = ["fa2_x", "fa2_y"]) -> pd.DataFrame:
     """
     Rescale selected columns in the DataFrame using StandardScaler.
 
@@ -55,7 +57,7 @@ def rescale(df: pd.DataFrame, columns: list[str] = ["x_pos", "y_pos"]) -> pd.Dat
     df : pandas DataFrame
         Input DataFrame containing the columns to be rescaled.
     columns : list of str, optional
-        Names of the columns to be rescaled. Default is ["x_pos", "y_pos"].
+        Names of the columns to be rescaled. Default is ["fa2_x", "fa2_y"].
 
     Returns:
     --------
@@ -85,8 +87,6 @@ def reading_merging(path_df: str,
                     path_com: str,
                     names_com: list,
                     dtype_com: dict,
-                    path_pos: str,
-                    name_pos: list
                     
                                     ) -> pd.DataFrame:
     """
@@ -99,8 +99,6 @@ def reading_merging(path_df: str,
     - path_com (str): Filepath for the community DataFrame CSV file.
     - names_com (list): Column names for the community DataFrame.
     - dtype_com (dict): Data types for columns in the community DataFrame.
-    - path_pos (str): Filepath for the JSON file containing position data.
-    - name_pos (list): Column names for the position DataFrame.
 
     Returns:
     - pd.DataFrame: Merged DataFrame containing data from the main DataFrame, community DataFrame, and position data.
@@ -143,14 +141,11 @@ def reading_merging(path_df: str,
                            dtype={"id":str,"annotation":str},
                            lineterminator="\n",
                            na_values=["","[]"])
-    with open(path_pos) as f: 
-        positions = json.load(f)
-        # reconstructing the data as a dictionary 
-    df_pos=pd.DataFrame.from_dict(positions, orient='index',columns=name_pos)
+    
     with open(DATA_DIR+'correct_future_pos.json') as f: 
         positions_fut = json.load(f)     
     # reconstructing the data as a dictionary 
-    df_pos_fut=pd.DataFrame.from_dict(positions_fut, orient='index',columns=["x_pos","y_pos"])
+    df_pos_fut=pd.DataFrame.from_dict(positions_fut, orient='index',columns=["fa2_x","fa2_y"])
     df_com_leiden_fut= pd.read_csv(
     COMPATH/"futures_communities_freq_leiden_90_2021-06-01.csv.gz",
     lineterminator="\n",
@@ -165,6 +160,16 @@ def reading_merging(path_df: str,
     header=0)
     df_future=df[df.index.isin(df_futures.index)].copy()
     df_future["annotation"]=df_future.index.map(df_futures["annotation"])
+    df=df[["text","annotation","user.id"]]
+    #new features from load_embeddings
+    n2v=load("n2v",deadline="2021-06-01")
+    n2v=n2v.rename(columns={i:"n2v_"+str(i) for i in n2v.columns})
+    n2v.index=n2v.index.map(str)
+    lap=load("laplacian",deadline="2021-06-01")
+    lap=lap.rename(columns={i:"lap_"+str(i) for i in lap.columns})
+    lap.index=lap.index.map(str)
+    fa2=load(kind='fa2',deadline="2021-06-01")
+    fa2.index=fa2.index.map(str)
     #df_anno_future.to_csv(DATA_DIR+"full_futures_annotated.csv",lineterminator='\n')
     df_future=df_future.merge(df_com_louvain_fut.set_index("user.id"),how="left",left_on="user.id",right_index=True)
     df_future=df_future.merge(df_com_leiden_fut.set_index("user.id"),how="left",left_on="user.id",right_index=True)
@@ -172,7 +177,10 @@ def reading_merging(path_df: str,
     df=df.merge(df_com_leiden.set_index("user.id"),how="left",left_on="user.id",right_index=True)
     df=df.merge(df_com_louvain.set_index("user.id"),how="left",left_on="user.id",right_index=True)
     df=df.merge(df_com.set_index("user.id"),how="left",left_on="user.id",right_index=True)
-    df=df.merge(df_pos,how="left",left_on="user.id",right_index=True)
+    df=df.merge(n2v,how="left",left_on="user.id",right_index=True)
+    df=df.merge(fa2,how="left",left_on="user.id",right_index=True)
+    df=df.merge(lap,how="left",left_on="user.id",right_index=True)
+
     return df,df_future
 
 def embedding(df: pd.DataFrame,
@@ -240,23 +248,7 @@ def preproc(df: pd.DataFrame,
                                                             .replace('\u0085'," ") #Unicode nextline character
                                                             .replace('\u2028'," ") #Unicone line separator character
                                                             .replace('\u2029'," ")) #Unicode paragraph separator character
-    df_anno=df_anno[["text",
-                   "annotation",
-                   "lv_0",
-                   "lv_1",
-                   "lv_2",
-                   "lv_3",
-                   "lv_4",
-                   "lv_5",
-                   "lv_6",
-                   "ld_0",
-                   "ld_1",
-                   "ld_2",
-                   "ld_3",
-                   "ld_4",
-                   "ld_5",
-                   "x_pos",
-                   "y_pos"]].rename(columns={'text':'sentence','annotation':'label'})
+    df_anno=df_anno.rename(columns={'text':'sentence','annotation':'label'})
     for i in ["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"]:
         df_anno[i]=df_anno[i].apply(int)
     leid_sum=df_anno[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"]].sum(axis=1)
@@ -272,7 +264,7 @@ def preproc(df: pd.DataFrame,
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
     df_anno["label"]=df_anno["label"].map(label2id).dropna()
     df_anno["label"]=df_anno["label"].apply(int)
-    df_anno[["x_pos","y_pos"]]=rescale(df_anno)
+    df_anno[["fa2_x", "fa2_y"]]=rescale(df_anno,["fa2_x", "fa2_y"])
     #PREPROCESSING ON SECOND DATASET
     df_fut.loc[:,'text']=df_fut['text'].apply(lambda x: x.replace('\n',' ') #Unix newline character
                                                             .replace('\t','') #Tab character
@@ -295,8 +287,8 @@ def preproc(df: pd.DataFrame,
                    "ld_3",
                    "ld_4",
                    "ld_5",
-                   "x_pos",
-                   "y_pos"]].rename(columns={'text':'sentence','annotation':'label'})
+                   "fa2_x",
+                   "fa2_y"]].rename(columns={'text':'sentence','annotation':'label'})
     for i in ["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"]:
         df_fut[i]=df_fut[i].apply(int)
     leid_sum=df_fut[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"]].sum(axis=1)
@@ -309,12 +301,12 @@ def preproc(df: pd.DataFrame,
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
     df_fut["label"]=df_fut["label"].map(label2id).dropna()
     df_fut["label"]=df_fut["label"].apply(int)
-    df_fut[["x_pos","y_pos"]]=rescale(df_fut)
+    df_fut[["fa2_x'","fa2_y'"]]=rescale(df_fut)
     return (embedding(df_anno),ids,embedding(df_fut))
 
 def main(DATA_INFO):
-    path_df,name_df,dtype_df,path_com,names_com,dtype_com,path_pos,name_pos,seed,label,DATA_PATH=DATA_INFO
-    df,df_fut=reading_merging(path_df,name_df,dtype_df,path_com,names_com,dtype_com,path_pos,name_pos)
+    path_df,name_df,dtype_df,path_com,names_com,dtype_com,seed,label,DATA_PATH=DATA_INFO
+    df,df_fut=reading_merging(path_df,name_df,dtype_df,path_com,names_com,dtype_com)
     df,ids,df_fut=preproc(df,df_fut,labels,seed)
     id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
     id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
@@ -339,8 +331,8 @@ if __name__ == "__main__":
              'lang',       
              'leiden_90', 
              'louvain_90', 
-             'x_pos', 
-             'y_pos']
+             'fa2_x', 
+             'fa2_y']
     dtype_df={
             "id": str,
             "text": str,
@@ -367,11 +359,9 @@ if __name__ == "__main__":
            "infomap_5000":int,
            "infomap_90":int}
     names_com=["user.id","leiden","infomap","louvain","leiden_5000","leiden_90","louvain_5000","louvain_90","infomap_5000","infomap_90"]
-    path_pos=DATA_DIR+'position_first_try.json'
-    names_pos=["x_pos","y_pos"]
     COMPATH=pathlib.Path(DATA_DIR+"coms")
     COMPATH.mkdir(parents=True, exist_ok=True)
-    DATA_INFO=(path_df,name_df,dtype_df,path_com,names_com,dtype_com,path_pos,names_pos,random_state,labels,DATA_DIR)
+    DATA_INFO=(path_df,name_df,dtype_df,path_com,names_com,dtype_com,random_state,labels,DATA_DIR)
     main(DATA_INFO)
 
 
