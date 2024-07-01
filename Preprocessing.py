@@ -103,36 +103,32 @@ def reading_merging(path_df: str,
     Returns:
     - pd.DataFrame: Merged DataFrame containing data from the main DataFrame, community DataFrame, and position data.
     """
-    df = pd.read_csv(
-        path_df,
-        index_col="id",
-        #names=name_df,
-        dtype=dtype_df,
-        na_values=["", "[]"],
-        parse_dates=["created_at"],
-        lineterminator="\n",
+    df = pd.read_csv(path_df,
+                     index_col="id",
+                     #names=name_df,
+                     dtype=dtype_df,
+                     na_values=["", "[]"],
+                     parse_dates=["created_at"],
+                     lineterminator="\n",
         )
-    df_com = pd.read_csv(
-        path_com,
-        names=names_com,
-        dtype=dtype_df,
-        lineterminator="\n"
+    df_com = pd.read_csv(path_com,
+                         names=names_com,
+                         dtype=dtype_df,
+                         lineterminator="\n"
     )
     df_com=df_com[["user.id","leiden_90","louvain_90"]]
     df_com["user.id"]
-    df_com_leiden= pd.read_csv(
-    COMPATH/"communities_freq_leiden_90_2021-06-01.csv.gz",
-    lineterminator="\n",
-    names=["user.id","ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"],
-    dtype={"user.id":str,"ld_0":int,"ld_1":int,"ld_2":int,"ld_3":int,"ld_4":int,"ld_5":int},
-    header=0)
+    df_com_leiden= pd.read_csv(COMPATH/"communities_freq_leiden_90_2021-06-01.csv.gz",
+                               lineterminator="\n",
+                               names=["user.id","ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"],
+                               dtype={"user.id":str,"ld_0":int,"ld_1":int,"ld_2":int,"ld_3":int,"ld_4":int,"ld_5":int},
+                               header=0)
     df_com_leiden.set_index("user.id")
-    df_com_louvain= pd.read_csv(
-    COMPATH/"communities_freq_louvain_90_2021-06-01.csv.gz",
-    lineterminator="\n",
-    names=["user.id","lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6"],
-    dtype={"user.id":str,"lv_0":int,"lv_1":int,"lv_2":int,"lv_3":int,"lv_4":int,"lv_5":int,"lv_6":int},
-    header=0)
+    df_com_louvain= pd.read_csv(COMPATH/"communities_freq_louvain_90_2021-06-01.csv.gz",
+                                lineterminator="\n",
+                                names=["user.id","lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6"],
+                                dtype={"user.id":str,"lv_0":int,"lv_1":int,"lv_2":int,"lv_3":int,"lv_4":int,"lv_5":int,"lv_6":int},
+                                header=0)
     df_com_louvain.set_index("user.id")
     df_futures=pd.read_csv(DATA_DIR+"tw2polarity_class_future.csv",
                            header=0,
@@ -146,20 +142,19 @@ def reading_merging(path_df: str,
         positions_fut = json.load(f)     
     # reconstructing the data as a dictionary 
     df_pos_fut=pd.DataFrame.from_dict(positions_fut, orient='index',columns=["fa2_x","fa2_y"])
-    df_com_leiden_fut= pd.read_csv(
-    COMPATH/"futures_communities_freq_leiden_90_2021-06-01.csv.gz",
-    lineterminator="\n",
-    names=["user.id","ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"],
-    dtype={"user.id":str,"ld_0":int,"ld_1":int,"ld_2":int,"ld_3":int,"ld_4":int,"ld_5":int},
-    header=0)
-    df_com_louvain_fut= pd.read_csv(
-    COMPATH/"futures_communities_freq_louvain_90_2021-06-01.csv.gz",
-    lineterminator="\n",
-    names=["user.id","lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6"],
-    dtype={"user.id":str,"lv_0":int,"lv_1":int,"lv_2":int,"lv_3":int,"lv_4":int,"lv_5":int,"lv_6":int},
-    header=0)
+    df_com_leiden_fut= pd.read_csv(COMPATH/"futures_communities_freq_leiden_90_2021-06-01.csv.gz",
+                                   lineterminator="\n",
+                                   names=["user.id","ld_0","ld_1","ld_2","ld_3","ld_4","ld_5"],
+                                   dtype={"user.id":str,"ld_0":int,"ld_1":int,"ld_2":int,"ld_3":int,"ld_4":int,"ld_5":int},
+                                   header=0)
+    df_com_louvain_fut= pd.read_csv(COMPATH/"futures_communities_freq_louvain_90_2021-06-01.csv.gz",
+                                    lineterminator="\n",
+                                    names=["user.id","lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6"],
+                                    dtype={"user.id":str,"lv_0":int,"lv_1":int,"lv_2":int,"lv_3":int,"lv_4":int,"lv_5":int,"lv_6":int},
+                                    header=0)
     df_future=df[df.index.isin(df_futures.index)].copy()
     df_future["annotation"]=df_future.index.map(df_futures["annotation"])
+    df[df["created_at"]<pd.Timestamp("2020-10-01" + "T00:00:00+02")].annotation=np.nan#removing annotation of retweets
     df=df[["text","annotation","user.id"]]
     #new features from load_embeddings
     n2v=load("n2v",deadline="2021-06-01")
@@ -170,6 +165,8 @@ def reading_merging(path_df: str,
     lap.index=lap.index.map(str)
     fa2=load(kind='fa2',deadline="2021-06-01")
     fa2.index=fa2.index.map(str)
+    #df_com_leiden=df_com_leiden.set_index("user.id")
+    #df_com_leiden.index=df_com_leiden.index.map(str)
     #df_anno_future.to_csv(DATA_DIR+"full_futures_annotated.csv",lineterminator='\n')
     df_future=df_future.merge(df_com_louvain_fut.set_index("user.id"),how="left",left_on="user.id",right_index=True)
     df_future=df_future.merge(df_com_leiden_fut.set_index("user.id"),how="left",left_on="user.id",right_index=True)
@@ -179,8 +176,7 @@ def reading_merging(path_df: str,
     df=df.merge(df_com.set_index("user.id"),how="left",left_on="user.id",right_index=True)
     df=df.merge(n2v,how="left",left_on="user.id",right_index=True)
     df=df.merge(fa2,how="left",left_on="user.id",right_index=True)
-    df=df.merge(lap,how="left",left_on="user.id",right_index=True)
-
+    df=df.merge(lap,how="left",left_on="user.id",right_index=True)    
     return df,df_future
 
 def embedding(df: pd.DataFrame,
