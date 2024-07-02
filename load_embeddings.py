@@ -9,8 +9,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+EMBEDDINGS = [
+    "laplacian",
+    "norm_laplacian",
+    "leiden",
+    "louvain",
+    "labelpropagation",
+    "n2v",
+    "fa2",
+]
 STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data_tw_tight/")
-
 DIR = STOR if STOR.is_dir() else Path("data_tw_tight")
 
 
@@ -20,7 +28,7 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
     Parameters:
     ----------
     kind : str
-        type of embedding: one of ['laplacian', 'community', 'n2v', 'fa2']
+        type of embedding: one of ['laplacian', 'norm_laplacian', 'leiden', 'louvain', 'labelpropagation', 'n2v', 'fa2']
     deadline : str
         Temporal threshold used to build the network.
     """
@@ -63,9 +71,9 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
         )
         data = data.sort_index()
     elif kind == "fa2":
-        data = pd.read_csv(
-            DIR / f"embedding_fa2_stronggrav_{deadline}_refined.csv.gz", index_col=0
-        ).drop(columns="user_id", errors="ignore")
+        data = pd.read_csv(DIR / f"embedding_fa2_{deadline}.csv.gz", index_col=0).drop(
+            columns="user_id", errors="ignore"
+        )
 
         data = data / data.abs().mean(axis=0)
     else:
