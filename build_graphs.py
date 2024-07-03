@@ -58,6 +58,9 @@ class Graph:
             shape=(len(users_inv), len(self._data)),
             dtype=int,
         ).tocsr()
+        # All pairs are repeated multiple times. The following fixes it.
+        self.tail.data = np.ones_like(self.tail.data)
+
         self.head = sparse.coo_matrix(
             (np.ones(len(self._data)), (hg_target, hg_links)),
             shape=(len(users_inv), len(self._data)),
@@ -123,10 +126,26 @@ def load_data(deadline: pd.Timestamp | str | None) -> Graph:
             "user_annotation": str,
             "lang": str,
         },
+        usecols=[
+            "id",
+            "text",
+            "created_at",
+            "user.id",
+            "retweeted_status.id",
+            "retweeted_status.user.id",
+            "annotation",
+            "user_annotation",
+        ],
         na_values=["", "[]"],
         parse_dates=["created_at"],
         lineterminator="\n",
+        # nrows=100000,
+    ).drop_duplicates(
+        subset=["user.id", "retweeted_status.id"], keep="first", ignore_index=False
     )
+    # the above drop fix multiple retweets (of the same tweet)
+    # from a single user.
+
     if deadline is None:
         return Graph(df_full)
     return Graph(df_full[df_full.created_at < deadline])

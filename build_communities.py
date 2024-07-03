@@ -9,7 +9,8 @@ import igraph
 import networkx as nx
 import numpy as np
 import pandas as pd
-import pygenstability as stability
+
+# import pygenstability as stability
 import sknetwork
 import tqdm
 from scipy import sparse
@@ -175,21 +176,21 @@ def partition(
     elif kind == "fastgreedy":
         graph_ig = sparse2igraph(adj)
         p = graph_ig.community_fastgreedy(weights="weight").as_clustering()
-    elif kind == "stability":
-        transition, steadystate = compute_transition_matrix(
-            adj + 0.1 * adj.T, niter=1000
-        )
-        stab = stability.run(
-            transition @ sparse.diags(steadystate, offsets=0, shape=transition.shape),
-            n_workers=15,
-            tqdm_disable=False,
-        )
-        p = pd.DataFrame(
-            {
-                f"stab_{p_id}": stab["community_id"][p_id]
-                for p_id in stab["selected_partitions"]
-            }
-        )
+    # elif kind == "stability":
+    #     transition, steadystate = compute_transition_matrix(
+    #         adj + 0.1 * adj.T, niter=1000
+    #     )
+    #     stab = stability.run(
+    #         transition @ sparse.diags(steadystate, offsets=0, shape=transition.shape),
+    #         n_workers=15,
+    #         tqdm_disable=False,
+    #     )
+    #     p = pd.DataFrame(
+    #         {
+    #             f"stab_{p_id}": stab["community_id"][p_id]
+    #             for p_id in stab["selected_partitions"]
+    #         }
+    #     )
     elif kind == "labelpropagation":
         graph_ig = sparse2igraph(adj)
         p = graph_ig.community_label_propagation(weights="weight")
@@ -328,6 +329,7 @@ def main(deadline: str) -> None:
     tail, head, usermap = load_graph(deadline)
     print("N users =", tail.shape[0])
     print("N edges =", head.nnz, tail.nnz)
+
     communities = pd.DataFrame()
 
     pp = partition_core(tail, head, usermap, kind="leiden")
@@ -343,8 +345,13 @@ def main(deadline: str) -> None:
         communities[part + "_90"] = simplify_community_struct(
             communities[part], coverage=0.9
         )
+    print(communities)
+    print(communities.nunique())
 
     adjacency = tail @ head.T
+    print("---")
+    print(adjacency.max(), tail.max(), head.max())
+    print("---")
     emb_list = []
     for part in communities.columns:
         if "_" in part:
@@ -360,6 +367,8 @@ def main(deadline: str) -> None:
             freq[part.split("_")[0]] = communities[part]
 
             emb_list.append(freq)
+            print(part, out_freq.max(), in_freq.max(), proj.max())
+            exit()
 
     emb = pd.concat(emb_list, axis=1)
     emb.index.names = ["user_index"]

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import pathlib
-from concurrent.futures import ThreadPoolExecutor as Executor
 
 import pandas as pd
 
 from build_embeddings import embed_fa2
-from build_graphs import DATAPATH, DEADLINES, load_graph
+from build_graphs import DATAPATH, load_graph
 
 MAX_LIM = 10000
 
