@@ -228,7 +228,7 @@ def embedding(df: pd.DataFrame,
     
     # Compute embeddings for each sentence in the DataFrame
     df_out[list_cols] = model.encode(df_out["sentence"], show_progress_bar=True)
-    
+    df_out[list_cols]=rescale(df_out,list_cols)
     return df_out
 
 def preproc(df: pd.DataFrame,
