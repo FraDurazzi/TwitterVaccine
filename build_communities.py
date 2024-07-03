@@ -349,9 +349,6 @@ def main(deadline: str) -> None:
     print(communities.nunique())
 
     adjacency = tail @ head.T
-    print("---")
-    print(adjacency.max(), tail.max(), head.max())
-    print("---")
     emb_list = []
     for part in communities.columns:
         if "_" in part:
@@ -367,8 +364,6 @@ def main(deadline: str) -> None:
             freq[part.split("_")[0]] = communities[part]
 
             emb_list.append(freq)
-            print(part, out_freq.max(), in_freq.max(), proj.max())
-            exit()
 
     emb = pd.concat(emb_list, axis=1)
     emb.index.names = ["user_index"]
