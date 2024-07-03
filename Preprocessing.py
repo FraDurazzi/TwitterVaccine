@@ -273,7 +273,6 @@ def preproc(df: pd.DataFrame,
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
     df_anno["label"]=df_anno["label"].map(label2id).dropna()
     df_anno["label"]=df_anno["label"].apply(int)
-    df_anno[["fa2_x", "fa2_y"]]=rescale(df_anno,["fa2_x", "fa2_y"])
     #PREPROCESSING ON SECOND DATASET
     df_fut.loc[:,'text']=df_fut['text'].apply(lambda x: x.replace('\n',' ') #Unix newline character
                                                             .replace('\t','') #Tab character
@@ -292,7 +291,6 @@ def preproc(df: pd.DataFrame,
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
     df_fut["label"]=df_fut["label"].map(label2id).dropna()
     df_fut["label"]=df_fut["label"].apply(int)
-    df_fut[["fa2_x'","fa2_y'"]]=rescale(df_fut)
     #print("df")
     #print(df.columns)
     #print("df_fut")
