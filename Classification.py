@@ -69,6 +69,7 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
                                  method="percentile",
                                  paired=True,
                                  vectorized=False).confidence_interval._asdict() for i in labels.unique()]
+<<<<<<< HEAD
 
     return {'accuracy': acc,
             'int_conf_accuracy': boot_int_acc._asdict(),
@@ -79,6 +80,18 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
             'matthews':matt,
             'int_conf_matthews': boot_int_matt._asdict()}
 
+=======
+
+    return {'accuracy': acc,
+            'int_conf_accuracy': boot_int_acc._asdict(),
+            'f1_score': f1,
+            'int_conf_f1_score': boot_int_f1_score._asdict(),
+            'f1_scores': f1s,
+            'single_class_int_conf_f1_score': f1s_conf,
+            'matthews':matt,
+            'int_conf_matthews': boot_int_matt._asdict()}
+
+>>>>>>> 6e88f8874ba5c0b50dd2978c1aa15b5aab59442c
 def loader(kind: str) -> pd.DataFrame:
     """
     Loads a dataset from a CSV file based on the provided kind.
@@ -116,6 +129,7 @@ def main():
         fut_df=loader("fut")
         filename="output.txt"
     ###Rescaling the used feature
+    print(fut_df.columns)
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
     train_df[using_cols]=rescale.transform(train_df[using_cols])
@@ -154,7 +168,7 @@ if __name__ == "__main__":
     lap=['lap_1', 'lap_2','lap_3', 'lap_4', 'lap_5', 'lap_6', 'lap_7', 'lap_8', 'lap_9', 'lap_10']
     fa2=['fa2_x', 'fa2_y']
     lab_prop=['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3','lab_prop_4', 'lab_prop_5', 'lab_prop_6', 'lab_prop_7', 'lab_prop_8','lab_prop_9']
-    norm_lap=['norm_lap1', 'norm_lap2', 'norm_lap3', 'norm_lap4','norm_lap5', 'norm_lap6', 'norm_lap7', 'norm_lap8', 'norm_lap9','norm_lap10']
+    norm_lap=['norm_lap_1', 'norm_lap_2', 'norm_lap_3', 'norm_lap_4','norm_lap_5', 'norm_lap_6', 'norm_lap_7', 'norm_lap_8', 'norm_lap_9','norm_lap_10']
     norm_leiden=['norm_ld_0', 'norm_ld_1', 'norm_ld_2', 'norm_ld_3', 'norm_ld_4', 'norm_ld_5','norm_ld_6', 'norm_ld_7']
     norm_louvain=['norm_lv_1', 'norm_lv_2', 'norm_lv_3', 'norm_lv_4', 'norm_lv_5', 'norm_lv_6','norm_lv_7']
     list_cols=["emb_col_"+str(i) for i in range(768)]
@@ -162,7 +176,14 @@ if __name__ == "__main__":
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain","list_cols"]
     penalty="l1"
     solver='saga'
-    using="fa2"
-    using_cols=fa2
+    using="norm_lap"
+    using_cols=norm_lap
     labels=[0,1,2]
+    """
+    for i in range(len(features)):
+        using=features_name[i]
+        using_cols=features[i]
+        print("Classification with:"+using)
+        main()
+    """
     main()
