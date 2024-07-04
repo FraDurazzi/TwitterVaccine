@@ -142,6 +142,7 @@ def main():
     f.write("\t val test: "+ str(compute_metrics(val_df["prediction"],val_df["label"]))+"\n")
     f.write("\t test test: "+ str(compute_metrics(test_df["prediction"],test_df["label"]))+"\n")
     f.write("\t fut test: "+ str(compute_metrics(fut_df["prediction"],fut_df["label"]))+"\n")
+    f.write("\n \n \n")
     f.close()
     
 
@@ -164,8 +165,4 @@ if __name__ == "__main__":
     using="fa2"
     using_cols=fa2
     labels=[0,1,2]
-    for i in range(len(features)):
-        using=features_name[i]
-        using_cols=features[i]
-        print("Classification with:"+using)
-        main()
+    main()
