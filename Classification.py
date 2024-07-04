@@ -69,8 +69,6 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
                                  method="percentile",
                                  paired=True,
                                  vectorized=False).confidence_interval._asdict() for i in labels.unique()]
-<<<<<<< HEAD
-
     return {'accuracy': acc,
             'int_conf_accuracy': boot_int_acc._asdict(),
             'f1_score': f1,
@@ -80,18 +78,6 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
             'matthews':matt,
             'int_conf_matthews': boot_int_matt._asdict()}
 
-=======
-
-    return {'accuracy': acc,
-            'int_conf_accuracy': boot_int_acc._asdict(),
-            'f1_score': f1,
-            'int_conf_f1_score': boot_int_f1_score._asdict(),
-            'f1_scores': f1s,
-            'single_class_int_conf_f1_score': f1s_conf,
-            'matthews':matt,
-            'int_conf_matthews': boot_int_matt._asdict()}
-
->>>>>>> 6e88f8874ba5c0b50dd2978c1aa15b5aab59442c
 def loader(kind: str) -> pd.DataFrame:
     """
     Loads a dataset from a CSV file based on the provided kind.
