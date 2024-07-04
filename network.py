@@ -12,7 +12,7 @@ import seaborn as sns
 from tqdm.auto import tqdm
 import re, os
 from sklearn.metrics import  accuracy_score, precision_score, recall_score, confusion_matrix
-from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR, NETWORK_DATA
+from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR, NETWORK_DATA
 from build_graphs import compute_graph, main, parse_date
 from fa2 import ForceAtlas2
 import igraph
