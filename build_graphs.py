@@ -18,7 +18,7 @@ import pandas as pd
 from scipy import sparse
 
 # from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
-from DIRS import LARGE_DATA_DIR
+from dirs import LARGE_DATA_DIR
 
 DATAPATH = pathlib.Path("data_tw_tight")
 DATAPATH.mkdir(parents=True, exist_ok=True)
