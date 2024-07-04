@@ -1,3 +1,26 @@
+"""
+Overview:
+    This Python script performs classification using Logistic Regression with Cross-Validation.
+    It includes data loading, preprocessing, model training, prediction, and evaluation through metrics computation.
+    The code handles different datasets and labels, and computes confidence intervals for the metrics using bootstrapping.
+
+Modules and Packages:
+    - sentence_transformers: For sentence embeddings.
+    - sklearn.linear_model: Contains LogisticRegressionCV, RidgeCV, and RidgeClassifierCV for different types of regression and classification models.
+    - sklearn.preprocessing: Contains StandardScaler for feature scaling.
+    - numpy: For numerical operations.
+    - pandas: For data manipulation.
+    - re: For regular expressions.
+    - os: For environment variable handling.
+    - json: For JSON operations.
+    - sklearn.metrics: For various evaluation metrics.
+    - scipy.stats: For statistical computations, specifically bootstrapping.
+
+Directory Constants:
+    - TRANSFORMERS_CACHE_DIR: Directory for cached transformer models.
+    - DATA_DIR: Directory for dataset files.
+    - LARGE_DATA_DIR: Directory for large dataset files.
+"""
 from sentence_transformers import SentenceTransformer
 from sklearn.linear_model import LogisticRegressionCV,RidgeCV,RidgeClassifierCV
 from sklearn.preprocessing import StandardScaler
@@ -11,7 +34,17 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 #label_list=[0,1,2]
 
-def compute_metrics(predictions,labels):
+def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
+    """
+    Computes various performance metrics and their confidence intervals using bootstrapping.
+
+    Parameters:
+        predictions (np.ndarray): Predicted labels.
+        labels (np.ndarray): True labels.
+
+    Returns:
+        dict: A dictionary containing accuracy, F1 scores, Matthews correlation coefficient, and their confidence intervals.
+    """
     acc = np.mean(predictions == labels)
     f1 = f1_score(labels, predictions, average = 'weighted')
     f1s= f1_score(labels, predictions, average = None)
@@ -46,10 +79,16 @@ def compute_metrics(predictions,labels):
             'matthews':matt,
             'int_conf_matthews': boot_int_matt._asdict()}
 
-def loader(kind):
+def loader(kind: str) -> pd.DataFrame:
     """
-    kind can be ["train","val","test","fut"] for 3 labels sets and
-    ["train_2l","val_2l","test_2l","fut_2l"] for two labels
+    Loads a dataset from a CSV file based on the provided kind.
+
+    Parameters:
+        kind (str): A string indicating the dataset type (for 3 label case: "train", "val", "test", "fut"; 
+                                                          for 2 label case: "train_2l", "val_2l", "test_2l", "fut_2l").
+
+    Returns:
+        pd.DataFrame: Loaded dataset as a pandas DataFrame.
     """
     df = pd.read_csv(DATA_DIR+kind+".csv",
                      #index_col="Unnamed: 0	",
@@ -61,6 +100,9 @@ def loader(kind):
 
 
 def main():
+    """
+    Main function to perform classification, training, and evaluation.
+    """
     if len(labels)==2:
         train_df=loader("train_2l")
         val_df=loader("val_2l")
