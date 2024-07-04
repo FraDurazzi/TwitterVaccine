@@ -51,7 +51,7 @@ def refine_positions(deadline: str, deadline_fix: str | None = None) -> None:
         positions.loc[fixed_pos.index] = fixed_pos
 
     positions = embed_fa2(adj, positions, n_cycles=500)
-    positions.to_csv(DATAPATH / "embedding_fa2_stronggrav_{deadline}_refined.csv.gz")
+    positions.to_csv(DATAPATH / f"embedding_fa2_stronggrav_{deadline}_refined.csv.gz")
 
 
 def main() -> None:

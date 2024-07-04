@@ -35,7 +35,7 @@ def load_base_community(
 
 def proj_to_base(users: pd.Series, base_users: pd.Series) -> sparse.spmatrix:
     """Compute the projector that send User to base users."""
-    iusers = pd.Series(users.index, index=users, name="i").astype(int)
+    iusers = pd.Series(users.index, index=users["user_id"], name="i").astype(int)
     ibase = pd.Series(base_users.index, index=base_users, name="j").astype(int)
 
     indices = pd.merge(iusers, ibase, how="inner", left_index=True, right_index=True)

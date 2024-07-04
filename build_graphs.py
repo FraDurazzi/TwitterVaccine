@@ -44,10 +44,17 @@ class Graph:
             lambda x: hyperlinks[x]
         )
 
-        self.users = pd.Series(
-            list(set(self._data["source"]) | set(self._data["target"])), name="user_id"
-        ).rename_axis("user_index")
-        users_inv = {u: i for i, u in self.users.items()}
+        _target_users = (
+            self._data[["target", "user.screen_name"]]
+            .rename(columns={"target": "user_id", "user.screen_name": "name"})
+            .drop_duplicates()
+        )
+        _source_users = list(set(self._data["source"]) - set(self._data["target"]))
+        self.users = pd.concat(
+            [_target_users, pd.DataFrame({"user_id": _source_users})]
+        ).reset_index(drop=True)
+
+        users_inv = {u["user_id"]: i for i, u in self.users.iterrows()}
 
         hg_links = self._data["hyperlink"]
         hg_source = self._data["source"].map(lambda x: users_inv[x])
@@ -131,6 +138,7 @@ def load_data(deadline: pd.Timestamp | str | None) -> Graph:
             "text",
             "created_at",
             "user.id",
+            "user.screen_name",
             "retweeted_status.id",
             "retweeted_status.user.id",
             "annotation",
@@ -153,7 +161,7 @@ def load_data(deadline: pd.Timestamp | str | None) -> Graph:
 
 def load_graph(
     deadline: pd.Timestamp | str,
-) -> tuple[sparse.csr_matrix, sparse.csr_matrix, pd.Series]:
+) -> tuple[sparse.csr_matrix, sparse.csr_matrix, pd.DataFrame]:
     """Load head tail and usermap."""
     head = sparse.load_npz(DATAPATH / f"hypergraph_{deadline}_head.npz")
     tail = sparse.load_npz(DATAPATH / f"hypergraph_{deadline}_tail.npz")
@@ -161,8 +169,8 @@ def load_graph(
     users = pd.read_csv(
         DATAPATH / f"hypergraph_{deadline}_users.csv.gz",
         index_col="user_index",
-        dtype="int64",
-    )["user_id"]
+        dtype={"user_id": "int64", "name": "str"},
+    )
 
     return tail, head, users
 
