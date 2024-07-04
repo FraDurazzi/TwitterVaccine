@@ -2,6 +2,7 @@
 """Use this module to load the embeddings.
 
 The embeddings will be a pandas dataframe with user_id as index and all the embedding values as entries.
+The embeddings are not standardized.
 """
 
 from pathlib import Path
@@ -18,8 +19,21 @@ EMBEDDINGS = [
     "n2v",
     "fa2",
 ]
-STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data_tw_tight/")
-DIR = STOR if STOR.is_dir() else Path("data_tw_tight")
+
+DATA_BIO11 = Path(
+    "/home/PERSONALE/mauro.faccin/projs/tweet_classify_w_community/TwitterVaccine/data_tw_tight"
+)
+DATA_STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data_tw_tight/")
+
+if DATA_STOR.is_dir():
+    DIR = DATA_STOR
+elif DATA_BIO11.is_dir():
+    DIR = DATA_BIO11
+elif Path("data_tw_tight").is_dir():
+    DIR = Path("data_tw_tight")
+else:
+    msg = "I couldn't reach the location of the data. Are you running on bio11?"
+    raise FileNotFoundError(msg)
 
 
 def load(kind: str, deadline: str) -> pd.DataFrame:
@@ -71,9 +85,13 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
         )
         data = data.sort_index()
     elif kind == "fa2":
-        data = pd.read_csv(DIR / f"embedding_fa2_{deadline}.csv.gz", index_col=0).drop(
-            columns="user_id", errors="ignore"
-        )
+        # data = pd.read_csv(
+        #     DIR / f"embedding_fa2_{deadline}.csv.gz",
+        #     index_col=0,
+        # )[["fa2_x", "fa2_y"]].drop(columns="user_id", errors="ignore")
+        data = pd.read_csv(
+            DIR / f"embedding_fa2_stronggrav_{deadline}_refined.csv.gz", index_col=0
+        ).drop(columns="user_id", errors="ignore")
 
         data = data / data.abs().mean(axis=0)
     else:
@@ -89,8 +107,8 @@ def load(kind: str, deadline: str) -> pd.DataFrame:
 def main() -> None:
     """Do the main."""
     print("Using path:", DIR)
-    print(load("fa2", "test"))
-    print(load("laplacian", "test"))
+    print(load("fa2", "pre"))
+    print(load("laplacian", "post"))
 
 
 if __name__ == "__main__":
