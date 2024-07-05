@@ -115,7 +115,6 @@ def main():
         fut_df=loader("fut")
         filename="output.txt"
     ###Rescaling the used feature
-    print(fut_df.columns)
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
     train_df[using_cols]=rescale.transform(train_df[using_cols])
@@ -148,14 +147,14 @@ def main():
 
 
 if __name__ == "__main__":
-    n2v=['n2v_1', 'n2v_2', 'n2v_3', 'n2v_4','n2v_5', 'n2v_6', 'n2v_7', 'n2v_8']
-    leiden=['ld_0', 'ld_1', 'ld_2', 'ld_3', 'ld_4', 'ld_5','ld_6', 'ld_7']
+    n2v=['n2v_1', 'n2v_2', 'n2v_3', 'n2v_4','n2v_5', 'n2v_6', 'n2v_7', 'n2v_8', 'n2v_9', 'n2v_10']
+    leiden=['ld_0', 'ld_1', 'ld_2', 'ld_3', 'ld_4', 'ld_5','ld_6']
     louvain=['lv_1', 'lv_2', 'lv_3', 'lv_4', 'lv_5', 'lv_6','lv_7']
     lap=['lap_1', 'lap_2','lap_3', 'lap_4', 'lap_5', 'lap_6', 'lap_7', 'lap_8', 'lap_9', 'lap_10']
     fa2=['fa2_x', 'fa2_y']
-    lab_prop=['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3','lab_prop_4', 'lab_prop_5', 'lab_prop_6', 'lab_prop_7', 'lab_prop_8','lab_prop_9']
+    lab_prop=['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3']
     norm_lap=['norm_lap_1', 'norm_lap_2', 'norm_lap_3', 'norm_lap_4','norm_lap_5', 'norm_lap_6', 'norm_lap_7', 'norm_lap_8', 'norm_lap_9','norm_lap_10']
-    norm_leiden=['norm_ld_0', 'norm_ld_1', 'norm_ld_2', 'norm_ld_3', 'norm_ld_4', 'norm_ld_5','norm_ld_6', 'norm_ld_7']
+    norm_leiden=['norm_ld_0', 'norm_ld_1', 'norm_ld_2', 'norm_ld_3', 'norm_ld_4', 'norm_ld_5','norm_ld_6']
     norm_louvain=['norm_lv_1', 'norm_lv_2', 'norm_lv_3', 'norm_lv_4', 'norm_lv_5', 'norm_lv_6','norm_lv_7']
     list_cols=["emb_col_"+str(i) for i in range(768)]
     features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain,list_cols]
@@ -165,11 +164,8 @@ if __name__ == "__main__":
     using="norm_lap"
     using_cols=norm_lap
     labels=[0,1,2]
-    """
     for i in range(len(features)):
         using=features_name[i]
         using_cols=features[i]
         print("Classification with:"+using)
         main()
-    """
-    main()
