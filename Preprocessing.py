@@ -177,7 +177,7 @@ def reading_merging(path_df: str,
     new_n2v,new_lap,new_fa2,new_ld,new_lv,new_lab_prop,new_norm_lap=loading("post")
     #df_com_leiden=df_com_leiden.set_index("user.id")
     #df_com_leiden.index=df_com_leiden.index.map(str)
-    #df_anno_future.to_csv(DATA_DIR+"full_futures_annotated.csv",lineterminator='\n')
+    #df_anno_future.to_csv(DATA_DIR+"full_futures_annotated.csv",line_terminator='\n')
     df=df.merge(old_n2v,how="left",left_on="user.id",right_index=True)
     df=df.merge(old_lap,how="left",left_on="user.id",right_index=True)
     df=df.merge(old_fa2,how="left",left_on="user.id",right_index=True)
@@ -260,11 +260,11 @@ def preproc(df: pd.DataFrame,
                                                             .replace('\u2028'," ") #Unicone line separator character
                                                             .replace('\u2029'," ")) #Unicode paragraph separator character
     df_anno=df_anno.rename(columns={'text':'sentence','annotation':'label'})
-    leid_sum=df_anno[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6","ld_7"]].sum(axis=1)
+    leid_sum=df_anno[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]].sum(axis=1)
     louv_sum=df_anno[["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]].sum(axis=1)
     for i in ["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]:
         df_anno["norm_"+i]=df_anno[i].divide(louv_sum)
-    for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6","ld_7"]:
+    for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
         df_anno["norm_"+i]=df_anno[i].divide(leid_sum)
     label2id = {label[0]:0, label[1]:1, label[2]:2}
     df_anno=undersampling(df_anno,seed)
@@ -281,11 +281,11 @@ def preproc(df: pd.DataFrame,
                                                             .replace('\u2028'," ") #Unicone line separator character
                                                             .replace('\u2029'," ")) #Unicode paragraph separator character
     df_fut=df_fut.rename(columns={'text':'sentence','annotation':'label'})
-    leid_sum_fut=df_fut[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6","ld_7"]].sum(axis=1)
+    leid_sum_fut=df_fut[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]].sum(axis=1)
     louv_sum_fut=df_fut[["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]].sum(axis=1)
     for i in ["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]:
         df_fut["norm_"+i]=df_fut[i].divide(louv_sum_fut)
-    for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6","ld_7"]:
+    for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
         df_fut["norm_"+i]=df_fut[i].divide(leid_sum_fut)
     if(len(label)==2):
         label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
@@ -299,18 +299,22 @@ def preproc(df: pd.DataFrame,
 
 def main(DATA_INFO):
     path_df,name_df,dtype_df,seed,label,DATA_PATH=DATA_INFO
+    print("Loading the datasets")
     df,df_fut=reading_merging(path_df,name_df,dtype_df)
+    print("Preprocessing the merged dataset")
     df,ids,df_fut=preproc(df,df_fut,labels,seed)
+    print("Dataset splitting")
     id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
     id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
     #print("df in main")
     #print(df.columns)
     #print("df_fut in main")
     #print(df_fut.columns)
-    df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',lineterminator='\n')
-    df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',lineterminator='\n')
-    df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',lineterminator='\n')
-    df_fut.to_csv(DATA_PATH+'fut.csv',lineterminator='\n')
+    print("Saving the dataset")
+    df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',line_terminator='\n')
+    df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',line_terminator='\n')
+    df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',line_terminator='\n')
+    df_fut.to_csv(DATA_PATH+'fut.csv',line_terminator='\n')
 
 if __name__ == "__main__":
     path_df=LARGE_DATA_DIR+"df_full.csv.gz"
