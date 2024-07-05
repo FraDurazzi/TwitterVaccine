@@ -129,18 +129,24 @@ def main():
     except FileExistsError:
         f=open(DATA_DIR+filename,"a")
         f.write(using+":\n")
-    predicted_train=clf.predict(train_df[using_cols])
-    predicted_val=clf.predict(val_df[using_cols])
-    predicted_test=clf.predict(test_df[using_cols])
-    predicted_fut=clf.predict(fut_df[using_cols])
-    train_df["prediction"]=predicted_train
-    val_df["prediction"]=predicted_val
-    test_df["prediction"]=predicted_test
-    fut_df["prediction"]=predicted_fut
+    train_df["prediction"]=clf.predict(train_df[using_cols])
+    val_df["prediction"]=clf.predict(val_df[using_cols])
+    test_df["prediction"]=clf.predict(test_df[using_cols])
+    fut_df["prediction"]=clf.predict(fut_df[using_cols])
+    results={"Train set": compute_metrics(train_df["prediction"],train_df["label"]),
+             "Val set":compute_metrics(val_df["prediction"],val_df["label"]),
+             "Test set":compute_metrics(test_df["prediction"],test_df["label"]),
+             "Fut set":compute_metrics(fut_df["prediction"],fut_df["label"])}
+    for i in results.keys():
+        f.write("\t "+ i+": \n")
+        for j in results[i].keys():
+            f.write("\t \t"+j+ " :" + str(results[i][j])+"\n \n")
+    """
     f.write("\t train test: "+ str(compute_metrics(train_df["prediction"],train_df["label"]))+"\n")
     f.write("\t val test: "+ str(compute_metrics(val_df["prediction"],val_df["label"]))+"\n")
     f.write("\t test test: "+ str(compute_metrics(test_df["prediction"],test_df["label"]))+"\n")
     f.write("\t fut test: "+ str(compute_metrics(fut_df["prediction"],fut_df["label"]))+"\n")
+    """
     f.write("\n \n \n")
     f.close()
     
@@ -156,9 +162,9 @@ if __name__ == "__main__":
     norm_lap=['norm_lap_1', 'norm_lap_2', 'norm_lap_3', 'norm_lap_4','norm_lap_5', 'norm_lap_6', 'norm_lap_7', 'norm_lap_8', 'norm_lap_9','norm_lap_10']
     norm_leiden=['norm_ld_0', 'norm_ld_1', 'norm_ld_2', 'norm_ld_3', 'norm_ld_4', 'norm_ld_5','norm_ld_6']
     norm_louvain=['norm_lv_1', 'norm_lv_2', 'norm_lv_3', 'norm_lv_4', 'norm_lv_5', 'norm_lv_6','norm_lv_7']
-    list_cols=["emb_col_"+str(i) for i in range(768)]
-    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain,list_cols]
-    features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain","list_cols"]
+    text_cols=["emb_col_"+str(i) for i in range(768)]
+    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain,text_cols]
+    features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain","text"]
     penalty="l1"
     solver='saga'
     using="norm_lap"
