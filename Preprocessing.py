@@ -21,7 +21,7 @@ from typing import Union
 from sklearn.model_selection import train_test_split
 from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import StandardScaler
-from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
+from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 from build_graphs import DEADLINES
 from load_embeddings import load
