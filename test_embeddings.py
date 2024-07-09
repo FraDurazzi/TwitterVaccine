@@ -19,7 +19,6 @@ def embed2d(input: pd.DataFrame) -> pd.DataFrame:
     if len(input.columns) == 2:
         return input
 
-    # return input[input.columns[:2]]
     pca = decomposition.PCA(n_components=2).fit_transform(input)
     return pd.DataFrame(pca)
 
@@ -57,15 +56,15 @@ def main() -> None:
         except EOFError:
             continue
         print(emb)
-        # comm = pd.read_csv(f"./data/communities_{deadline}.csv.gz")["leiden"]
-        emb_comms = load(deadline=deadline, kind="leiden")
+        # comm = pd.read_csv(DATAPATH / f"communities_{deadline}.csv.gz")["louvain"]
+        emb_comms = load(deadline=deadline, kind="louvain")
         emb_comms = emb_comms.drop(emb_comms.columns[-1], axis=1)
         comm = pd.Series(
             [x.argmax() for x in emb_comms.to_numpy()], index=emb_comms.index
         )
 
-        if False:
-            if deadline == DEADLINES[0]:
+        if True:
+            if deadline == "pre":
                 # train = umap.UMAP(n_neighbors=50).fit(emb)
                 train = decomposition.PCA().fit(emb)
             synth = train.transform(emb)
