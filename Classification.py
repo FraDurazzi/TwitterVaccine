@@ -102,6 +102,7 @@ def main():
     """
     Main function to perform classification, training, and evaluation.
     """
+    print("Classification with:"+using)
     if len(labels)==2:
         train_df=loader("train_2l")
         val_df=loader("val_2l")
@@ -163,15 +164,23 @@ if __name__ == "__main__":
     norm_leiden=['norm_ld_0', 'norm_ld_1', 'norm_ld_2', 'norm_ld_3', 'norm_ld_4', 'norm_ld_5','norm_ld_6']
     norm_louvain=['norm_lv_1', 'norm_lv_2', 'norm_lv_3', 'norm_lv_4', 'norm_lv_5', 'norm_lv_6','norm_lv_7']
     text_cols=["emb_col_"+str(i) for i in range(768)]
-    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain,text_cols]
-    features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain","text"]
+    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
+    features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
     penalty="l1"
     solver='saga'
     using="norm_lap"
     using_cols=norm_lap
     labels=[0,1,2]
+    """
     for i in range(len(features)):
         using=features_name[i]
         using_cols=features[i]
-        print("Classification with:"+using)
+        main()
+    using_cols=text_cols
+    using="text"
+    main()
+    """
+    for i in range(len(features)):
+        using=features_name[i]+" + text"
+        using_cols=np.append(features[i],text_cols)        
         main()
