@@ -123,6 +123,7 @@ def main():
     test_df[using_cols]=rescale.transform(test_df[using_cols])
     fut_df[using_cols]=rescale.transform(fut_df[using_cols])
     ###
+    clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000,l1_ratios=[l1_ratios]).fit(train_df[using_cols],train_df["label"])
     try:
         f=open(DATA_DIR+filename,"x") 
         f.write(using+":\n")
