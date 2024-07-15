@@ -114,7 +114,7 @@ def main():
         val_df=loader("val")
         test_df=loader("test")
         fut_df=loader("fut")
-        filename="output_"+filename+".txt"
+        filename="output_"+settings+".txt"
     ###Rescaling the used feature
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
@@ -123,7 +123,10 @@ def main():
     test_df[using_cols]=rescale.transform(test_df[using_cols])
     fut_df[using_cols]=rescale.transform(fut_df[using_cols])
     ###
-    clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000,l1_ratios=[l1_ratios]).fit(train_df[using_cols],train_df["label"])
+    if (l1_ratios):
+        clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000,l1_ratios=[l1_ratios]).fit(train_df[using_cols],train_df["label"])
+    else:
+        clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000).fit(train_df[using_cols],train_df["label"])
     try:
         f=open(DATA_DIR+filename,"x") 
         f.write(using+":\n")
@@ -166,10 +169,10 @@ if __name__ == "__main__":
     text_cols=["emb_col_"+str(i) for i in range(768)]
     features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
-    penalty='elasticnet'
+    penalty='l1'
     solver="saga"
-    filename=penalty+"_"+solver
-    l1_ratios=0.4
+    settings=penalty+"_"+solver
+    l1_ratios=0
     using="norm_lap"
     using_cols=norm_lap
     labels=[0,1,2]
