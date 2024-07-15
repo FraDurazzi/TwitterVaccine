@@ -46,27 +46,27 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
         dict: A dictionary containing accuracy, F1 scores, Matthews correlation coefficient, and their confidence intervals.
     """
     acc = np.mean(predictions == labels)
-    f1 = f1_score(labels, predictions, average = 'weighted')
+    f1 = f1_score(labels, predictions, average = 'micro')
     f1s= f1_score(labels, predictions, average = None)
     matt=matthews_corrcoef(labels, predictions)
     boot_int_acc=bootstrap((predictions,labels),
                            lambda x,y : np.mean(x==y),
-                           method="percentile",
+                           method='BCa',
                            paired=True,
                            vectorized=False).confidence_interval
     boot_int_f1_score=bootstrap((predictions,labels),
-                                lambda x,y :f1_score(x,y,average='weighted'),
-                                method="percentile",
+                                lambda x,y :f1_score(x,y,average='micro'),
+                                method='BCa',
                                 paired=True,
                                 vectorized=False).confidence_interval
     boot_int_matt=bootstrap((predictions,labels),
                            matthews_corrcoef,
-                           method="percentile",
+                           method='BCa',
                            paired=True,
                            vectorized=False).confidence_interval
     f1s_conf=[bootstrap((predictions[labels[labels==i].index],labels[labels[labels==i].index]),
-                                 lambda x,y : f1_score(x,y,average="weighted"),
-                                 method="percentile",
+                                 lambda x,y : f1_score(x,y,average='micro'),
+                                 method='BCa',
                                  paired=True,
                                  vectorized=False).confidence_interval._asdict() for i in labels.unique()]
     return {'accuracy': acc,
@@ -108,13 +108,13 @@ def main():
         val_df=loader("val_2l")
         test_df=loader("test_2l")
         fut_df=loader("fut_2l")
-        filename="output_2l.txt"
+        filename="output_"+filename+"_2l.txt"
     else:
         train_df=loader("train")
         val_df=loader("val")
         test_df=loader("test")
         fut_df=loader("fut")
-        filename="output.txt"
+        filename="output_"+filename+".txt"
     ###Rescaling the used feature
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
@@ -123,7 +123,6 @@ def main():
     test_df[using_cols]=rescale.transform(test_df[using_cols])
     fut_df[using_cols]=rescale.transform(fut_df[using_cols])
     ###
-    clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000).fit(train_df[using_cols],train_df["label"])
     try:
         f=open(DATA_DIR+filename,"x") 
         f.write(using+":\n")
@@ -166,12 +165,13 @@ if __name__ == "__main__":
     text_cols=["emb_col_"+str(i) for i in range(768)]
     features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
-    penalty="l1"
-    solver='saga'
+    penalty='elasticnet'
+    solver="saga"
+    filename=penalty+"_"+solver
+    l1_ratios=0.4
     using="norm_lap"
     using_cols=norm_lap
     labels=[0,1,2]
-    """
     for i in range(len(features)):
         using=features_name[i]
         using_cols=features[i]
@@ -179,7 +179,6 @@ if __name__ == "__main__":
     using_cols=text_cols
     using="text"
     main()
-    """
     for i in range(len(features)):
         using=features_name[i]+" + text"
         using_cols=np.append(features[i],text_cols)        
