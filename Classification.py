@@ -34,7 +34,7 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 #label_list=[0,1,2]
 
-def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
+def compute_metrics(predictions: np.ndarray, labels: np.ndarray,method="bca") -> dict:
     """
     Computes various performance metrics and their confidence intervals using bootstrapping.
 
@@ -51,29 +51,29 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict:
     matt=matthews_corrcoef(labels, predictions)
     boot_int_acc=bootstrap((predictions,labels),
                            lambda x,y : np.mean(x==y),
-                           method='BCa',
+                           method=method,
                            paired=True,
-                           vectorized=False).confidence_interval
+                           vectorized=False,random_state=42).confidence_interval
     boot_int_f1_score=bootstrap((predictions,labels),
                                 lambda x,y :f1_score(x,y,average='micro'),
-                                method='BCa',
+                                method=method,
                                 paired=True,
-                                vectorized=False).confidence_interval
+                                vectorized=False,random_state=42).confidence_interval
     boot_int_matt=bootstrap((predictions,labels),
                            matthews_corrcoef,
-                           method='BCa',
+                           method=method,
                            paired=True,
-                           vectorized=False).confidence_interval
-    f1s_conf=[bootstrap((predictions[labels[labels==i].index],labels[labels[labels==i].index]),
-                                 lambda x,y : f1_score(x,y,average='micro'),
-                                 method='BCa',
+                           vectorized=False,random_state=42).confidence_interval
+    f1s_conf=[bootstrap((predictions==i,labels==i),
+                                 lambda x,y : f1_score(x,y),
+                                 method=method,
                                  paired=True,
-                                 vectorized=False).confidence_interval._asdict() for i in labels.unique()]
+                                 vectorized=False,random_state=42).confidence_interval._asdict() for i in labels.unique()]
     return {'accuracy': acc,
             'int_conf_accuracy': boot_int_acc._asdict(),
             'f1_score': f1,
             'int_conf_f1_score': boot_int_f1_score._asdict(),
-            'f1_scores': f1s,
+            'f1_scores': f1s.tolist(),
             'single_class_int_conf_f1_score': f1s_conf,
             'matthews':matt,
             'int_conf_matthews': boot_int_matt._asdict()}
@@ -108,13 +108,15 @@ def main():
         val_df=loader("val_2l")
         test_df=loader("test_2l")
         fut_df=loader("fut_2l")
-        filename="output_"+filename+"_2l.txt"
+        filename="output_"+settings+"_2l.txt"
+        fileout="output_"+settings+"_2l.json"
     else:
         train_df=loader("train")
         val_df=loader("val")
         test_df=loader("test")
         fut_df=loader("fut")
         filename="output_"+settings+".txt"
+        fileout="output_"+settings+".json"
     ###Rescaling the used feature
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
@@ -129,18 +131,17 @@ def main():
         clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000).fit(train_df[using_cols],train_df["label"])
     try:
         f=open(DATA_DIR+filename,"x") 
-        f.write(using+":\n")
     except FileExistsError:
-        f=open(DATA_DIR+filename,"a")
-        f.write(using+":\n")
+        f=open(DATA_DIR+filename,"a")   
+    f.write(using+":\n")
     train_df["prediction"]=clf.predict(train_df[using_cols])
     val_df["prediction"]=clf.predict(val_df[using_cols])
     test_df["prediction"]=clf.predict(test_df[using_cols])
     fut_df["prediction"]=clf.predict(fut_df[using_cols])
-    results={"Train set": compute_metrics(train_df["prediction"],train_df["label"]),
-             "Val set":compute_metrics(val_df["prediction"],val_df["label"]),
-             "Test set":compute_metrics(test_df["prediction"],test_df["label"]),
-             "Fut set":compute_metrics(fut_df["prediction"],fut_df["label"])}
+    results={"Train set": compute_metrics(train_df["prediction"],train_df["label"],method),
+             "Val set":compute_metrics(val_df["prediction"],val_df["label"],method),
+             "Test set":compute_metrics(test_df["prediction"],test_df["label"],method),
+             "Fut set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
     for i in results.keys():
         f.write("\t "+ i+": \n")
         for j in results[i].keys():
@@ -153,7 +154,8 @@ def main():
     """
     f.write("\n \n \n")
     f.close()
-    
+
+    return(results)
 
 
 if __name__ == "__main__":
@@ -169,21 +171,33 @@ if __name__ == "__main__":
     text_cols=["emb_col_"+str(i) for i in range(768)]
     features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
-    penalty='l1'
-    solver="saga"
-    settings=penalty+"_"+solver
+    penalty='l2'
+    solver='lbfgs'
+    method="basic"
+    settings=penalty+"_"+solver+"_"+method
     l1_ratios=0
     using="norm_lap"
     using_cols=norm_lap
     labels=[0,1,2]
+    results={}
     for i in range(len(features)):
         using=features_name[i]
         using_cols=features[i]
-        main()
+        results[using]=main()
     using_cols=text_cols
     using="text"
-    main()
+    results[using]=main()
     for i in range(len(features)):
         using=features_name[i]+" + text"
         using_cols=np.append(features[i],text_cols)        
-        main()
+        results[using]=main()
+    if len(labels):
+        fileout="output_"+settings+"_2l.json"
+    else:
+        fileout="output_"+settings+".json"
+    try:
+        f=open(DATA_DIR+fileout,"x") 
+    except FileExistsError:
+        f=open(DATA_DIR+fileout,"a")
+    json.dump(results,f)
+    f.close()
