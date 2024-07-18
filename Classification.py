@@ -22,7 +22,7 @@ Directory Constants:
     - LARGE_DATA_DIR: Directory for large dataset files.
 """
 from sentence_transformers import SentenceTransformer
-from sklearn.linear_model import LogisticRegressionCV,RidgeCV,RidgeClassifierCV
+from sklearn.linear_model import LogisticRegressionCV,RidgeClassifierCV
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pandas as pd
@@ -30,9 +30,21 @@ import re,os
 import json
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score, confusion_matrix,matthews_corrcoef
 from scipy.stats import bootstrap
+from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-#label_list=[0,1,2]
+penalty='l1'
+solver='saga'
+method="basic"
+labels=[0,1,2]
+model="ridge"
+if model=="logistic":
+    settings=penalty+"_"+solver+"_"+method
+else:
+    settings=model
+WORKING_PATH=DATA_DIR+settings+"/"+str(len(labels))+"l/"
+Path(WORKING_PATH).mkdir(parents=True, exist_ok=True)
+
 
 def compute_metrics(predictions: np.ndarray, labels: np.ndarray,method="bca") -> dict:
     """
@@ -108,15 +120,14 @@ def main():
         val_df=loader("val_2l")
         test_df=loader("test_2l")
         fut_df=loader("fut_2l")
-        filename="output_"+settings+"_2l.txt"
-        fileout="output_"+settings+"_2l.json"
     else:
         train_df=loader("train")
         val_df=loader("val")
         test_df=loader("test")
         fut_df=loader("fut")
-        filename="output_"+settings+".txt"
-        fileout="output_"+settings+".json"
+        
+    filename="output.txt"
+    fileout="output.json"
     ###Rescaling the used feature
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
@@ -125,14 +136,26 @@ def main():
     test_df[using_cols]=rescale.transform(test_df[using_cols])
     fut_df[using_cols]=rescale.transform(fut_df[using_cols])
     ###
-    if (l1_ratios):
-        clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000,l1_ratios=[l1_ratios]).fit(train_df[using_cols],train_df["label"])
+    if model=="logistic":
+        if (l1_ratios):
+            clf=LogisticRegressionCV(penalty=penalty,
+                                     solver=solver,
+                                     random_state=42,
+                                     max_iter=10000,
+                                     l1_ratios=[l1_ratios],
+                                     cv=5).fit(train_df[using_cols],train_df["label"])
+        else:
+            clf=LogisticRegressionCV(penalty=penalty,
+                                     solver=solver,
+                                     random_state=42
+                                     ,max_iter=10000,
+                                     cv=5).fit(train_df[using_cols],train_df["label"])
     else:
-        clf=LogisticRegressionCV(penalty=penalty,solver=solver,random_state=42,max_iter=10000).fit(train_df[using_cols],train_df["label"])
+        clf=RidgeClassifierCV().fit(train_df[using_cols],train_df["label"])
     try:
-        f=open(DATA_DIR+filename,"x") 
+        f=open(WORKING_PATH+filename,"x") 
     except FileExistsError:
-        f=open(DATA_DIR+filename,"a")   
+        f=open(WORKING_PATH+filename,"a")   
     f.write(using+":\n")
     train_df["prediction"]=clf.predict(train_df[using_cols])
     val_df["prediction"]=clf.predict(val_df[using_cols])
@@ -171,14 +194,9 @@ if __name__ == "__main__":
     text_cols=["emb_col_"+str(i) for i in range(768)]
     features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
-    penalty='l2'
-    solver='lbfgs'
-    method="basic"
-    settings=penalty+"_"+solver+"_"+method
     l1_ratios=0
     using="norm_lap"
     using_cols=norm_lap
-    labels=[0,1,2]
     results={}
     for i in range(len(features)):
         using=features_name[i]
@@ -192,12 +210,12 @@ if __name__ == "__main__":
         using_cols=np.append(features[i],text_cols)        
         results[using]=main()
     if len(labels):
-        fileout="output_"+settings+"_2l.json"
+        fileout="output_2l.json"
     else:
-        fileout="output_"+settings+".json"
+        fileout="output.json"
     try:
-        f=open(DATA_DIR+fileout,"x") 
+        f=open(WORKING_PATH+fileout,"x") 
     except FileExistsError:
-        f=open(DATA_DIR+fileout,"a")
+        f=open(WORKING_PATH+fileout,"a")
     json.dump(results,f)
     f.close()
