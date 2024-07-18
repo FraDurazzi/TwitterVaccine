@@ -303,6 +303,7 @@ def main(DATA_INFO):
     df,df_fut=reading_merging(path_df,name_df,dtype_df)
     print("Preprocessing the merged dataset")
     df,ids,df_fut=preproc(df,df_fut,labels,seed)
+    
     print("Dataset splitting")
     id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
     id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
@@ -315,6 +316,16 @@ def main(DATA_INFO):
     df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',line_terminator='\n')
     df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',line_terminator='\n')
     df_fut.to_csv(DATA_PATH+'fut.csv',line_terminator='\n')
+    print("Building 2L dataset")
+    df,ids,df_fut=preproc(df,df_fut,[0,1],seed)
+    print("Dataset splitting")
+    id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
+    id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
+    print("Saving the dataset")
+    df[df.index.isin(id_train)].to_csv(DATA_PATH+'train2l.csv',line_terminator='\n')
+    df[df.index.isin(id_test)].to_csv(DATA_PATH+'test2l.csv',line_terminator='\n')
+    df[df.index.isin(id_val)].to_csv(DATA_PATH+'val2l.csv',line_terminator='\n')
+    df_fut.to_csv(DATA_PATH+'fut2l.csv',line_terminator='\n')
 
 if __name__ == "__main__":
     path_df=LARGE_DATA_DIR+"df_full.csv.gz"
