@@ -33,11 +33,13 @@ from scipy.stats import bootstrap
 from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-penalty='l1'
+penalty='elasticnet'
 solver='saga'
 method="basic"
+l1_ratios=0.4
 labels=[0,1,2]
-model="ridge"
+model="logistic"
+#model="ridge"
 if model=="logistic":
     settings=penalty+"_"+solver+"_"+method
 else:
@@ -194,7 +196,6 @@ if __name__ == "__main__":
     text_cols=["emb_col_"+str(i) for i in range(768)]
     features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
-    l1_ratios=0
     using="norm_lap"
     using_cols=norm_lap
     results={}
