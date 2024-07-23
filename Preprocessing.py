@@ -25,7 +25,8 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 from build_graphs import DEADLINES
 from load_embeddings import load
-labels=['ProVax','AntiVax','Neutral']
+#labels=['ProVax','Neutral','AntiVax']
+labels=['ProVax','AntiVax']
 random_state=42
 
 def undersampling(df: pd.DataFrame, random_state : Union[int,None] =None) -> pd.DataFrame:
@@ -266,13 +267,20 @@ def preproc(df: pd.DataFrame,
         df_anno["norm_"+i]=df_anno[i].divide(louv_sum)
     for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
         df_anno["norm_"+i]=df_anno[i].divide(leid_sum)
-    label2id = {label[0]:0, label[1]:1, label[2]:2}
-    df_anno=undersampling(df_anno,seed)
-    ids=df_anno.index.to_numpy()
     if(len(label)==2):
-        label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
-    df_anno["label"]=df_anno["label"].map(label2id).dropna()
-    df_anno["label"]=df_anno["label"].apply(int)
+        label2id = {label[0]:0, "Neutral":np.nan, label[1]:1}
+        df_anno=undersampling(df_anno,seed)
+    else:
+        label2id = {label[0]:0, label[1]:1, label[2]:2}
+    ids=df_anno.index.to_numpy()
+    # Map the values in the 'label' column using the 'label2id' dictionary
+    df_anno["label"] = df_anno["label"].map(label2id)
+
+    # Drop rows where the 'label' column is NaN
+    df_anno = df_anno.dropna(subset=["label"])
+
+    # Convert the 'label' column to integers
+    df_anno["label"] = df_anno["label"].astype(int)
     #PREPROCESSING ON SECOND DATASET
     df_fut.loc[:,'text']=df_fut['text'].apply(lambda x: x.replace('\n',' ') #Unix newline character
                                                             .replace('\t','') #Tab character
@@ -288,9 +296,10 @@ def preproc(df: pd.DataFrame,
     for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
         df_fut["norm_"+i]=df_fut[i].divide(leid_sum_fut)
     if(len(label)==2):
-        label2id = {label[0]:0, label[1]:np.nan, label[2]:1}
-    df_fut["label"]=df_fut["label"].map(label2id).dropna()
-    df_fut["label"]=df_fut["label"].apply(int)
+        label2id = {label[0]:0, "Neutral":np.nan, label[1]:1}
+    df_fut["label"]=df_fut["label"].map(label2id)
+    df_fut=df_fut.dropna(subset=["label"])
+    df_fut["label"]=df_fut["label"].astype(int)
     #print("df")
     #print(df.columns)
     #print("df_fut")
@@ -302,8 +311,7 @@ def main(DATA_INFO):
     print("Loading the datasets")
     df,df_fut=reading_merging(path_df,name_df,dtype_df)
     print("Preprocessing the merged dataset")
-    df,ids,df_fut=preproc(df,df_fut,labels,seed)
-    
+    df,ids,df_fut=preproc(df,df_fut,labels,seed)    
     print("Dataset splitting")
     id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
     id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
@@ -312,20 +320,10 @@ def main(DATA_INFO):
     #print("df_fut in main")
     #print(df_fut.columns)
     print("Saving the dataset")
-    df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',line_terminator='\n')
-    df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',line_terminator='\n')
-    df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',line_terminator='\n')
-    df_fut.to_csv(DATA_PATH+'fut.csv',line_terminator='\n')
-    print("Building 2L dataset")
-    df,ids,df_fut=preproc(df,df_fut,[0,1],seed)
-    print("Dataset splitting")
-    id_train,id_test=train_test_split(ids, test_size=0.33, random_state=42)
-    id_test,id_val=train_test_split(ids, test_size=0.5, random_state=42)
-    print("Saving the dataset")
-    df[df.index.isin(id_train)].to_csv(DATA_PATH+'train2l.csv',line_terminator='\n')
-    df[df.index.isin(id_test)].to_csv(DATA_PATH+'test2l.csv',line_terminator='\n')
-    df[df.index.isin(id_val)].to_csv(DATA_PATH+'val2l.csv',line_terminator='\n')
-    df_fut.to_csv(DATA_PATH+'fut2l.csv',line_terminator='\n')
+    df[df.index.isin(id_train)].to_csv(DATA_PATH+'train_2l.csv',line_terminator='\n')
+    df[df.index.isin(id_test)].to_csv(DATA_PATH+'test_2l.csv',line_terminator='\n')
+    df[df.index.isin(id_val)].to_csv(DATA_PATH+'val_2l.csv',line_terminator='\n')
+    df_fut.to_csv(DATA_PATH+'fut_2l.csv',line_terminator='\n')
 
 if __name__ == "__main__":
     path_df=LARGE_DATA_DIR+"df_full.csv.gz"
