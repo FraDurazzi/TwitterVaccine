@@ -38,6 +38,7 @@ solver='saga'
 method="basic"
 l1_ratios=0.4
 labels=[0,1,2]
+#labels=[0,1]
 model="logistic"
 #model="ridge"
 if model=="logistic":
@@ -210,7 +211,7 @@ if __name__ == "__main__":
         using=features_name[i]+" + text"
         using_cols=np.append(features[i],text_cols)        
         results[using]=main()
-    if len(labels):
+    if len(labels)==2:
         fileout="output_2l.json"
     else:
         fileout="output.json"
