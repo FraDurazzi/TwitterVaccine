@@ -39,6 +39,7 @@ def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=
 
     # Save the plot as a PDF
     plt.savefig(WORKING_PATH+name+".pdf", format='pdf')
+    plt.savefig(WORKING_PATH+name+".png", format='png')
 
     # Show the plot
     plt.show()
