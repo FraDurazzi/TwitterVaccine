@@ -11,7 +11,7 @@ from scipy.stats import bootstrap
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 from Classification import WORKING_PATH
-
+#WORKING_PATH=DATA_DIR+"ridge/3l/"
 
 def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=None):
     text_val,text_err=text_comp
@@ -65,7 +65,7 @@ def reading(dictionary,feature,select="single"):
     return value,ers
 
 def main():
-    f=open(DATA_DIR+"output_l2_lbfgs_basic_2l.json")
+    f=open(WORKING_PATH+"output.json")
     dictionary=json.load(f)
     single_acc,single_acc_ers=reading(dictionary,"accuracy",select="single")
     single_f1,single_f1_ers=reading(dictionary,"f1_score",select="single")
