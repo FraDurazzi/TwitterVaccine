@@ -25,8 +25,8 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 from build_graphs import DEADLINES
 from load_embeddings import load
-labels=['ProVax','Neutral','AntiVax']
-#labels=['ProVax','AntiVax']
+#labels=['ProVax','Neutral','AntiVax']
+labels=['ProVax','AntiVax']
 random_state=42
 
 def undersampling(df: pd.DataFrame, random_state : Union[int,None] =None) -> pd.DataFrame:
@@ -333,7 +333,7 @@ def main(DATA_INFO):
         df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',line_terminator='\n')
         df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',line_terminator='\n')
         df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',line_terminator='\n')
-        df[not(df.index.isin(id_val))].to_csv(DATA_PATH+'fold.csv',line_terminator='\n')
+        df[df.index.isin(id_val).apply(not())].to_csv(DATA_PATH+'fold.csv',line_terminator='\n')
         df_fut.to_csv(DATA_PATH+'fut.csv',line_terminator='\n')        
 
 if __name__ == "__main__":
