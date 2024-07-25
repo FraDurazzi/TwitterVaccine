@@ -263,6 +263,9 @@ def preproc(df: pd.DataFrame,
     df_anno=df_anno.rename(columns={'text':'sentence','annotation':'label'})
     leid_sum=df_anno[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]].sum(axis=1)
     louv_sum=df_anno[["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]].sum(axis=1)
+    lab_sum=df_anno[['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3']].sum(axis=1)
+    for i in ['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3']:
+        df_anno["norm_"+i]=df_anno[i].divide(lab_sum)
     for i in ["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]:
         df_anno["norm_"+i]=df_anno[i].divide(louv_sum)
     for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
