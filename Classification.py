@@ -33,10 +33,10 @@ from scipy.stats import bootstrap
 from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-penalty='elasticnet'
-solver='saga'
+penalty='l2'
+solver='lbfgs'
 method="basic"
-l1_ratios=0.4
+l1_ratios=0
 labels=[0,1,2]
 #labels=[0,1]
 model="logistic"
@@ -194,8 +194,9 @@ if __name__ == "__main__":
     norm_lap=['norm_lap_1', 'norm_lap_2', 'norm_lap_3', 'norm_lap_4','norm_lap_5', 'norm_lap_6', 'norm_lap_7', 'norm_lap_8', 'norm_lap_9','norm_lap_10']
     norm_leiden=['norm_ld_0', 'norm_ld_1', 'norm_ld_2', 'norm_ld_3', 'norm_ld_4', 'norm_ld_5','norm_ld_6']
     norm_louvain=['norm_lv_1', 'norm_lv_2', 'norm_lv_3', 'norm_lv_4', 'norm_lv_5', 'norm_lv_6','norm_lv_7']
+    norm_lab_prop=['norm_lab_prop_0', 'norm_lab_prop_1', 'norm_lab_prop_2', 'norm_lab_prop_3']
     text_cols=["emb_col_"+str(i) for i in range(768)]
-    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain]
+    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain,norm_lab_prop]
     features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain"]
     using="norm_lap"
     using_cols=norm_lap
@@ -211,9 +212,6 @@ if __name__ == "__main__":
         using=features_name[i]+" + text"
         using_cols=np.append(features[i],text_cols)        
         results[using]=main()
-    if len(labels)==2:
-        fileout="output_2l.json"
-    else:
         fileout="output.json"
     try:
         f=open(WORKING_PATH+fileout,"x") 
