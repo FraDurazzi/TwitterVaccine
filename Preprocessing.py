@@ -25,8 +25,8 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 from build_graphs import DEADLINES
 from load_embeddings import load
-labels=['ProVax','Neutral','AntiVax']
-#labels=['ProVax','AntiVax']
+#labels=['ProVax','Neutral','AntiVax']
+labels=['ProVax','AntiVax']
 random_state=42
 
 def undersampling(df: pd.DataFrame, random_state : Union[int,None] =None) -> pd.DataFrame:
@@ -294,6 +294,9 @@ def preproc(df: pd.DataFrame,
     df_fut=df_fut.rename(columns={'text':'sentence','annotation':'label'})
     leid_sum_fut=df_fut[["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]].sum(axis=1)
     louv_sum_fut=df_fut[["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]].sum(axis=1)
+    lab_sum=df_fut[['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3']].sum(axis=1)
+    for i in ['lab_prop_0', 'lab_prop_1', 'lab_prop_2', 'lab_prop_3']:
+        df_fut["norm_"+i]=df_fut[i].divide(lab_sum)
     for i in ["lv_0","lv_1","lv_2","lv_3","lv_4","lv_5","lv_6","lv_7"]:
         df_fut["norm_"+i]=df_fut[i].divide(louv_sum_fut)
     for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
