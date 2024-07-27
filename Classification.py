@@ -303,10 +303,10 @@ def kfold_class(fold_df: pd.DataFrame,
     result_train={}    
     result_val={} 
     for j in list(partial_results_train.keys()):
-        result_train[j]=np.mean(partial_results_train[j],axis=0)
-        result_train['int_conf_'+j]=np.std(partial_results_train[j],axis=0)
-        result_val[j]=np.mean(partial_results_val[j],axis=0)
-        result_val['int_conf_'+j]=np.std(partial_results_val[j],axis=0)        
+        result_train[j]=np.mean(partial_results_train[j],axis=0).tolist()
+        result_train['int_conf_'+j]=np.std(partial_results_train[j],axis=0).tolist()
+        result_val[j]=np.mean(partial_results_val[j],axis=0).tolist()
+        result_val['int_conf_'+j]=np.std(partial_results_val[j],axis=0).tolist()     
     test_df["prediction"]=clf.predict(test_df[using_cols])
     fut_df["prediction"]=clf.predict(fut_df[using_cols])
     results={"Train set": result_train,
@@ -352,9 +352,10 @@ def main():
         test_df=loader("test")
         fut_df=loader("fut")
         fold_df=loader("fold")   
-    filename="output.txt"
-    fileout="output.json"
-    f=open(WORKING_PATH+filename,"w")   
+    try:
+        f=open(WORKING_PATH+filename,"x") 
+    except FileExistsError:
+        f=open(WORKING_PATH+filename,"a")  
     ###Rescaling the used feature
     rescale=StandardScaler()
     rescale.fit(train_df[using_cols])
@@ -402,6 +403,12 @@ if __name__ == "__main__":
     using="norm_lap"
     using_cols=norm_lap
     all_results={}
+    filename="output.txt"
+    fileout="output.json"
+    f=open(WORKING_PATH+fileout,"w")
+    f.close()
+    f=open(WORKING_PATH+filename,"w")
+    f.close()
     for i in range(len(features)):
         using=features_name[i]
         using_cols=features[i]
@@ -413,7 +420,10 @@ if __name__ == "__main__":
         using=features_name[i]+" + text"
         using_cols=np.append(features[i],text_cols)        
         all_results[using]=main()
-    fileout="output.json"
+    try:
+        f=open(WORKING_PATH+fileout,"x") 
+    except FileExistsError:
+        f=open(WORKING_PATH+fileout,"a")
     f=open(WORKING_PATH+fileout,"w")
     json.dump(all_results,f)
     f.close()

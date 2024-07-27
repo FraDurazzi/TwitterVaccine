@@ -46,26 +46,27 @@ def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=
 
 def reading(dictionary,feature,select="single"):
     if select=="single":
-        value=np.empty(shape=9)
-        ers=np.empty(shape=(9,2))
+        value=np.empty(shape=10)
+        ers=np.empty(shape=(10,2))
         for i in range(len(value)):
             value[i]=dictionary[list(dictionary.keys())[i]]["Val set"][feature]
             ers[i]=np.abs(list(dictionary[list(dictionary.keys())[i]]["Val set"]["int_conf_"+feature].values())-value[i])
     elif select=="comb":
-        value=np.empty(shape=9)
-        ers=np.empty(shape=(9,2))
+        value=np.empty(shape=10)
+        ers=np.empty(shape=(10,2))
         for i in range(len(value)):
-            value[i]=dictionary[list(dictionary.keys())[10+i]]["Val set"][feature]
-            ers[i]=np.abs(list(dictionary[list(dictionary.keys())[10+i]]["Val set"]["int_conf_"+feature].values())-value[i])
+            value[i]=dictionary[list(dictionary.keys())[11+i]]["Val set"][feature]
+            ers[i]=np.abs(list(dictionary[list(dictionary.keys())[11+i]]["Val set"]["int_conf_"+feature].values())-value[i])
     elif select=="text":
         value=np.empty(shape=1)
         ers=np.empty(shape=(1,2))
-        value[0]=dictionary[list(dictionary.keys())[9]]["Val set"][feature]
-        ers[0]=[np.abs(i-value[0]) for i in list(dictionary[list(dictionary.keys())[9]]["Val set"]['int_conf_'+feature].values())]
+        value[0]=dictionary[list(dictionary.keys())[10]]["Val set"][feature]
+        ers[0]=[np.abs(i-value[0]) for i in list(dictionary[list(dictionary.keys())[10]]["Val set"]['int_conf_'+feature].values())]
     return value,ers
 
 def main():
     f=open(WORKING_PATH+"output.json")
+    print(WORKING_PATH)
     dictionary=json.load(f)
     single_acc,single_acc_ers=reading(dictionary,"accuracy",select="single")
     single_f1,single_f1_ers=reading(dictionary,"f1_score",select="single")
@@ -76,10 +77,8 @@ def main():
     text_acc,text_acc_ers=reading(dictionary,"accuracy",select="text")
     text_f1,text_f1_ers=reading(dictionary,"f1_score",select="text")
     text_matt,text_matt_ers=reading(dictionary,"matthews",select="text")
-    single=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[0:9]]
-    comb=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[10:]]
-    print(text_acc.shape)
-    print(text_acc_ers.shape)
+    single=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[0:10]]
+    comb=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[11:]]
     plotting(comb,comb_acc,y_errs=comb_acc_ers.transpose(),text_comp=(text_acc,text_acc_ers),name='Feature+Text Accuracy',x_axis='Different Feature',y_axis='Accuracy')
     plotting(comb,comb_f1,y_errs=comb_f1_ers.transpose(),text_comp=(text_f1,text_f1_ers),name='Feature+Text F1 Score',x_axis='Different Feature',y_axis='F1 Score')
     plotting(comb,comb_matt,y_errs=comb_matt_ers.transpose(),text_comp=(text_matt,text_matt_ers),name='Feature+Text Matthews Coeficient',x_axis='Different Feature',y_axis='Matthews Coeficient')
