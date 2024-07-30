@@ -33,14 +33,14 @@ from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_sc
 from scipy.stats import bootstrap
 from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
-fold=False
+fold=True
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 penalty='l2'
 solver='lbfgs'
 method="basic"
 l1_ratios=0
-#labels=[0,1,2]
-labels=[0,1]
+labels=[0,1,2]
+#labels=[0,1]
 model="logistic"
 #model="ridge"
 if model=="logistic":
@@ -131,7 +131,7 @@ def bootstrap_class(train_df: pd.DataFrame,
                     l1_ratios: float = 0, 
                     solver: str = solver, 
                     random_state: int = 42, 
-                    max_iter: int = 10000
+                    max_iter: int = 100000
                    ) -> dict:
     """
     Trains a classification model using logistic regression or ridge classifier, 
@@ -217,7 +217,7 @@ def kfold_class(fold_df: pd.DataFrame,
                     l1_ratios: float = 0, 
                     solver: str = solver, 
                     random_state: int = 42, 
-                    max_iter: int = 10000 
+                    max_iter: int = 100000 
                     ) -> dict:
     """
     Trains a classification model using logistic regression or ridge classifier with K-fold cross-validation,
@@ -267,6 +267,14 @@ def kfold_class(fold_df: pd.DataFrame,
     x=fold_df.index.tolist()
     kf.get_n_splits(x)
     label=fold_df["label"].unique()
+    partial_results_train={'accuracy':np.empty(shape=5),
+                           'f1_score':np.empty(shape=5),
+                           'f1_scores':np.empty(shape=(5,len(label))),
+                           'matthews':np.empty(shape=5)}
+    partial_results_val={'accuracy':np.empty(shape=5),
+                           'f1_score':np.empty(shape=5),
+                           'f1_scores':np.empty(shape=(5,len(label))),
+                           'matthews':np.empty(shape=5)}
     for i, (train_index, val_index) in enumerate(kf.split(x)):
         if model=="logistic":
             if (l1_ratios):                
@@ -286,17 +294,9 @@ def kfold_class(fold_df: pd.DataFrame,
             clf=RidgeClassifierCV().fit(fold_df[using_cols].loc[fold_df.index[train_index]],fold_df["label"].loc[fold_df.index[train_index]])
         train_pred=clf.predict(fold_df[using_cols].loc[fold_df.index[train_index]])
         val_pred=clf.predict(fold_df[using_cols].loc[fold_df.index[val_index]])
-        partial_results_train={'accuracy':np.empty(shape=5),
-                       'f1_score':np.empty(shape=5),
-                       'f1_scores':np.empty(shape=(5,len(label))),
-                       'matthews':np.empty(shape=5)}
         esteem=compute_metrics_k_fold(train_pred,fold_df["label"].loc[fold_df.index[train_index]].to_numpy())
         for j in list(esteem.keys()):
             partial_results_train[j][i]=esteem[j]
-        partial_results_val={'accuracy':np.empty(shape=5),
-                     'f1_score':np.empty(shape=5),
-                     'f1_scores':np.empty(shape=(5,len(label))),
-                     'matthews':np.empty(shape=5)}
         esteem=compute_metrics_k_fold(val_pred,fold_df["label"].loc[fold_df.index[val_index]].to_numpy())
         for j in list(esteem.keys()):
             partial_results_val[j][i]=esteem[j]
@@ -304,9 +304,17 @@ def kfold_class(fold_df: pd.DataFrame,
     result_val={} 
     for j in list(partial_results_train.keys()):
         result_train[j]=np.mean(partial_results_train[j],axis=0).tolist()
-        result_train['int_conf_'+j]=np.std(partial_results_train[j],axis=0).tolist()
+        std=np.std(partial_results_train[j],axis=0).tolist()
+        try:
+            result_train['int_conf_'+j]=[{"low":result_train[j][k]-std[k],"high":result_train[j][k]+std[k]}for k in range(len(std))]
+        except(TypeError):
+            result_train['int_conf_'+j]={"low":result_train[j]-std,"high":result_train[j]+std}        
         result_val[j]=np.mean(partial_results_val[j],axis=0).tolist()
-        result_val['int_conf_'+j]=np.std(partial_results_val[j],axis=0).tolist()     
+        std=np.std(partial_results_val[j],axis=0).tolist()
+        try:
+            result_val['int_conf_'+j]=[{"low":result_val[j][k]-std[k],"high":result_val[j][k]+std[k]}for k in range(len(std))]
+        except(TypeError):
+            result_val['int_conf_'+j]={"low":result_val[j]-std,"high":result_val[j]+std}     
     test_df["prediction"]=clf.predict(test_df[using_cols])
     fut_df["prediction"]=clf.predict(fut_df[using_cols])
     results={"Train set": result_train,
