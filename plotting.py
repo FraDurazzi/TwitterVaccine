@@ -8,12 +8,17 @@ import re,os
 import json
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score, confusion_matrix,matthews_corrcoef
 from scipy.stats import bootstrap
+import pathlib
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 from Classification import WORKING_PATH
 #WORKING_PATH=DATA_DIR+"ridge/3l/"
+WORKING_PATH="/home/PERSONALE/niccolo.barbieri3/thesis_project/thesis_data/l1_saga_basic/fold/3l/"
+printing=WORKING_PATH+"fut/"
+pathlib.Path(printing).mkdir()
+selected_set="Fut set"
 
-def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=None):
+def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=None,WORKING_PATH=WORKING_PATH):
     text_val,text_err=text_comp
     fig, ax = plt.subplots()
 
@@ -46,22 +51,22 @@ def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=
 
 def reading(dictionary,feature,select="single"):
     if select=="single":
-        value=np.empty(shape=10)
-        ers=np.empty(shape=(10,2))
+        value=np.empty(shape=7)
+        ers=np.empty(shape=(7,2))
         for i in range(len(value)):
-            value[i]=dictionary[list(dictionary.keys())[i]]["Val set"][feature]
-            ers[i]=np.abs(list(dictionary[list(dictionary.keys())[i]]["Val set"]["int_conf_"+feature].values())-value[i])
+            value[i]=dictionary[list(dictionary.keys())[i]][selected_set][feature]
+            ers[i]=np.abs(list(dictionary[list(dictionary.keys())[i]][selected_set]["int_conf_"+feature].values())-value[i])
     elif select=="comb":
-        value=np.empty(shape=10)
-        ers=np.empty(shape=(10,2))
+        value=np.empty(shape=7)
+        ers=np.empty(shape=(7,2))
         for i in range(len(value)):
-            value[i]=dictionary[list(dictionary.keys())[11+i]]["Val set"][feature]
-            ers[i]=np.abs(list(dictionary[list(dictionary.keys())[11+i]]["Val set"]["int_conf_"+feature].values())-value[i])
+            value[i]=dictionary[list(dictionary.keys())[8+i]][selected_set][feature]
+            ers[i]=np.abs(list(dictionary[list(dictionary.keys())[8+i]][selected_set]["int_conf_"+feature].values())-value[i])
     elif select=="text":
         value=np.empty(shape=1)
         ers=np.empty(shape=(1,2))
-        value[0]=dictionary[list(dictionary.keys())[10]]["Val set"][feature]
-        ers[0]=[np.abs(i-value[0]) for i in list(dictionary[list(dictionary.keys())[10]]["Val set"]['int_conf_'+feature].values())]
+        value[0]=dictionary[list(dictionary.keys())[7]][selected_set][feature]
+        ers[0]=[np.abs(i-value[0]) for i in list(dictionary[list(dictionary.keys())[7]][selected_set]['int_conf_'+feature].values())]
     return value,ers
 
 def main():
@@ -77,14 +82,14 @@ def main():
     text_acc,text_acc_ers=reading(dictionary,"accuracy",select="text")
     text_f1,text_f1_ers=reading(dictionary,"f1_score",select="text")
     text_matt,text_matt_ers=reading(dictionary,"matthews",select="text")
-    single=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[0:10]]
-    comb=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[11:]]
-    plotting(comb,comb_acc,y_errs=comb_acc_ers.transpose(),text_comp=(text_acc,text_acc_ers),name='Feature+Text Accuracy',x_axis='Different Feature',y_axis='Accuracy')
-    plotting(comb,comb_f1,y_errs=comb_f1_ers.transpose(),text_comp=(text_f1,text_f1_ers),name='Feature+Text F1 Score',x_axis='Different Feature',y_axis='F1 Score')
-    plotting(comb,comb_matt,y_errs=comb_matt_ers.transpose(),text_comp=(text_matt,text_matt_ers),name='Feature+Text Matthews Coeficient',x_axis='Different Feature',y_axis='Matthews Coeficient')
-    plotting(single,single_acc,y_errs=single_acc_ers.transpose(),text_comp=(text_acc,text_acc_ers),name='Single Feature  Accuracy',x_axis='Different Feature',y_axis='Accuracy')
-    plotting(single,single_f1,y_errs=single_f1_ers.transpose(),text_comp=(text_f1,text_f1_ers),name='Single Feature  F1 Score',x_axis='Different Feature',y_axis='F1 Score')
-    plotting(single,single_matt,y_errs=single_matt_ers.transpose(),text_comp=(text_matt,text_matt_ers),name='Single Feature  Matthews Coeficient',x_axis='Different Feature',y_axis='Matthews Coeficient')
+    single=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[0:7]]
+    comb=[s.replace(" + ","\n").replace("_", "\n") for s in list(dictionary)[8:]]
+    plotting(comb,comb_acc,y_errs=comb_acc_ers.transpose(),text_comp=(text_acc,text_acc_ers),name='Feature+Text Accuracy',x_axis='Different Feature',y_axis='Accuracy',WORKING_PATH=printing)
+    plotting(comb,comb_f1,y_errs=comb_f1_ers.transpose(),text_comp=(text_f1,text_f1_ers),name='Feature+Text F1 Score',x_axis='Different Feature',y_axis='F1 Score',WORKING_PATH=printing)
+    plotting(comb,comb_matt,y_errs=comb_matt_ers.transpose(),text_comp=(text_matt,text_matt_ers),name='Feature+Text Matthews Coeficient',x_axis='Different Feature',y_axis='Matthews Coeficient',WORKING_PATH=printing)
+    plotting(single,single_acc,y_errs=single_acc_ers.transpose(),text_comp=(text_acc,text_acc_ers),name='Single Feature  Accuracy',x_axis='Different Feature',y_axis='Accuracy',WORKING_PATH=printing)
+    plotting(single,single_f1,y_errs=single_f1_ers.transpose(),text_comp=(text_f1,text_f1_ers),name='Single Feature  F1 Score',x_axis='Different Feature',y_axis='F1 Score',WORKING_PATH=printing)
+    plotting(single,single_matt,y_errs=single_matt_ers.transpose(),text_comp=(text_matt,text_matt_ers),name='Single Feature  Matthews Coeficient',x_axis='Different Feature',y_axis='Matthews Coeficient',WORKING_PATH=printing)
 
 
 

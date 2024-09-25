@@ -35,9 +35,11 @@ from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 fold=True
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-penalty='l2'
-solver='lbfgs'
+penalty='l1'
+solver='saga'
+#solver="lbfgs"
 method="basic"
+#l1_ratios=0.4
 l1_ratios=0
 labels=[0,1,2]
 #labels=[0,1]
@@ -128,7 +130,7 @@ def bootstrap_class(train_df: pd.DataFrame,
                     using_cols: list, 
                     using: str,
                     model: str=model, 
-                    l1_ratios: float = 0, 
+                    l1_ratios: float = l1_ratios, 
                     solver: str = solver, 
                     random_state: int = 42, 
                     max_iter: int = 100000
@@ -202,10 +204,10 @@ def bootstrap_class(train_df: pd.DataFrame,
     val_df["prediction"]=clf.predict(val_df[using_cols])
     test_df["prediction"]=clf.predict(test_df[using_cols])
     fut_df["prediction"]=clf.predict(fut_df[using_cols])
-    results={"Train set": compute_metrics(train_df["prediction"],train_df["label"],method),
-             "Val set":compute_metrics(val_df["prediction"],val_df["label"],method),
-             "Test set":compute_metrics(test_df["prediction"],test_df["label"],method),
-             "Fut set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
+    results={"Train_set": compute_metrics(train_df["prediction"],train_df["label"],method),
+             "Val_set":compute_metrics(val_df["prediction"],val_df["label"],method),
+             "Test_set":compute_metrics(test_df["prediction"],test_df["label"],method),
+             "Fut_set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
     return results
 
 def kfold_class(fold_df: pd.DataFrame, 
@@ -214,7 +216,7 @@ def kfold_class(fold_df: pd.DataFrame,
                     using_cols: list, 
                     using: str,
                     model: str=model, 
-                    l1_ratios: float = 0, 
+                    l1_ratios: float = l1_ratios, 
                     solver: str = solver, 
                     random_state: int = 42, 
                     max_iter: int = 100000 
@@ -317,10 +319,10 @@ def kfold_class(fold_df: pd.DataFrame,
             result_val['int_conf_'+j]={"low":result_val[j]-std,"high":result_val[j]+std}     
     test_df["prediction"]=clf.predict(test_df[using_cols])
     fut_df["prediction"]=clf.predict(fut_df[using_cols])
-    results={"Train set": result_train,
-             "Val set":result_val,
-             "Test set":compute_metrics(test_df["prediction"],test_df["label"],method),
-             "Fut set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
+    results={"Train_set": result_train,
+             "Val_set":result_val,
+             "Test_set":compute_metrics(test_df["prediction"],test_df["label"],method),
+             "Fut_set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
     return results
 
 def loader(kind: str) -> pd.DataFrame:
@@ -406,8 +408,26 @@ if __name__ == "__main__":
     norm_louvain=['norm_lv_1', 'norm_lv_2', 'norm_lv_3', 'norm_lv_4', 'norm_lv_5', 'norm_lv_6','norm_lv_7']
     norm_lab_prop=['norm_lab_prop_0', 'norm_lab_prop_1', 'norm_lab_prop_2', 'norm_lab_prop_3']
     text_cols=["emb_col_"+str(i) for i in range(768)]
-    features=[n2v,leiden,louvain,lap,fa2,lab_prop,norm_lap,norm_leiden,norm_louvain,norm_lab_prop]
-    features_name=["n2v","leiden","louvain","lap","fa2","lab_prop","norm_lap","norm_leiden","norm_louvain","norm_lab_prop"]
+    features=[n2v,
+              #leiden,
+              #louvain,
+              lap,
+              fa2,
+              #lab_prop,
+              norm_lap,
+              norm_leiden,
+              norm_louvain,
+              norm_lab_prop]
+    features_name=["n2v",
+                   #"leiden",
+                   #"louvain",
+                   "lap",
+                   "fa2",
+                   #"lab_prop",
+                   "norm_lap",
+                   "norm_leiden",
+                   "norm_louvain",
+                   "norm_lab_prop"]
     using="norm_lap"
     using_cols=norm_lap
     all_results={}
