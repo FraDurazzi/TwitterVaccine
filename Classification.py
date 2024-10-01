@@ -133,7 +133,7 @@ def bootstrap_class(train_df: pd.DataFrame,
                     l1_ratios: float = l1_ratios, 
                     solver: str = solver, 
                     random_state: int = 42, 
-                    max_iter: int = 100000
+                    max_iter: int = 100000,Saving=False
                    ) -> dict:
     """
     Trains a classification model using logistic regression or ridge classifier, 
@@ -208,7 +208,10 @@ def bootstrap_class(train_df: pd.DataFrame,
              "Val_set":compute_metrics(val_df["prediction"],val_df["label"],method),
              "Test_set":compute_metrics(test_df["prediction"],test_df["label"],method),
              "Fut_set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
-    return results
+    if Saving==True:
+        return results,clf
+    else:
+        return results
 
 def kfold_class(fold_df: pd.DataFrame, 
                     test_df: pd.DataFrame, 
@@ -219,7 +222,7 @@ def kfold_class(fold_df: pd.DataFrame,
                     l1_ratios: float = l1_ratios, 
                     solver: str = solver, 
                     random_state: int = 42, 
-                    max_iter: int = 100000 
+                    max_iter: int = 100000,Saving=False
                     ) -> dict:
     """
     Trains a classification model using logistic regression or ridge classifier with K-fold cross-validation,
@@ -323,7 +326,10 @@ def kfold_class(fold_df: pd.DataFrame,
              "Val_set":result_val,
              "Test_set":compute_metrics(test_df["prediction"],test_df["label"],method),
              "Fut_set":compute_metrics(fut_df["prediction"],fut_df["label"],method)}
-    return results
+    if Saving==True:
+        return results,clf
+    else:
+        return results
 
 def loader(kind: str) -> pd.DataFrame:
     """
