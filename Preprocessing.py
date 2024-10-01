@@ -25,29 +25,35 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 from build_graphs import DEADLINES
 from load_embeddings import load
-#labels=['ProVax','Neutral','AntiVax']
-labels=['ProVax','AntiVax']
+labels=['ProVax','Neutral','AntiVax']
+#labels=['ProVax','AntiVax']
 random_state=42
 
-def undersampling(df: pd.DataFrame, random_state : Union[int,None] =None) -> pd.DataFrame:
+import pandas as pd
+from typing import Union
+
+def undersampling(df: pd.DataFrame, random_state : Union[int, None] = None) -> pd.DataFrame:
     """
     Perform undersampling on a DataFrame to balance label classes.
 
     Parameters:
     - df (pd.DataFrame): The input DataFrame containing a 'label' column.
-    - random_state (int|None): Seed for reproducibility in random sampling, if no seed is passed then completly randomic process is performed.
+    - random_state (int|None): Seed for reproducibility in random sampling, if no seed is passed then completely random process is performed.
 
     Returns:
     - pd.DataFrame: Undersampled DataFrame with balanced label classes.
-
     """
-    l = df.label.value_counts()['ProVax']
+    # Determine the minimum count across the three classes to avoid sampling errors
+    min_count = df.label.value_counts().min()
+    
     out = pd.concat([
-        df[df.label == 'ProVax'],
-        df[df.label == 'AntiVax'].sample(l, random_state=random_state),
-        df[df.label == 'Neutral'].sample(l, random_state=random_state)
-    ], ignore_index=False)
-    return out
+        df[df.label == 'ProVax'].sample(min_count, random_state=random_state),
+        df[df.label == 'AntiVax'].sample(min_count, random_state=random_state),
+        df[df.label == 'Neutral'].sample(min_count, random_state=random_state)
+    ], ignore_index=True)  # To reset the index
+    
+    return out.sample(frac=1, random_state=random_state)  # Shuffle the rows
+
 
 def rescale(df: pd.DataFrame, columns: list[str] = ["fa2_x", "fa2_y"]) -> pd.DataFrame:
     """
@@ -271,9 +277,10 @@ def preproc(df: pd.DataFrame,
     for i in ["ld_0","ld_1","ld_2","ld_3","ld_4","ld_5","ld_6"]:
         df_anno["norm_"+i]=df_anno[i].divide(leid_sum)
     if(len(label)==2):
-        label2id = {label[0]:0, "Neutral":np.nan, label[1]:1}
         df_anno=undersampling(df_anno,seed)
+        label2id = {label[0]:0, "Neutral":np.nan, label[1]:1}
     else:
+        df_anno=undersampling(df_anno,seed)
         label2id = {label[0]:0, label[1]:1, label[2]:2}
     ids=df_anno.index.to_numpy()
     # Map the values in the 'label' column using the 'label2id' dictionary
