@@ -13,10 +13,10 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 from Classification import WORKING_PATH
 #WORKING_PATH=DATA_DIR+"ridge/3l/"
-WORKING_PATH="/home/PERSONALE/niccolo.barbieri3/thesis_project/thesis_data/l1_saga_basic/fold/3l/"
-printing=WORKING_PATH+"fut/"
+WORKING_PATH="/home/PERSONALE/niccolo.barbieri3/thesis_project/thesis_data/l1_saga_basic/fold/2l/"
+printing=WORKING_PATH+"test/"
 pathlib.Path(printing).mkdir()
-selected_set="Fut set"
+selected_set="Test set"
 
 def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=None,WORKING_PATH=WORKING_PATH):
     text_val,text_err=text_comp
