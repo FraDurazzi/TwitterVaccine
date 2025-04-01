@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Load the community on the first deadline and find the embeddings on all other deadlines."""
+"""Load the community on the first deadline and find the embeddings on all other deadlines.
+
+In this script, we load the users and their community as defined in the first deadline,
+afterward, we compute the number of neighbors that each user has in that deadline and the following
+in each of the communities.
+"""
 
 import numpy as np
 import pandas as pd
@@ -49,11 +54,14 @@ def proj_to_base(users: pd.Series, base_users: pd.Series) -> sparse.spmatrix:
 def main(kind: str) -> None:
     """Do the main."""
     print("---", kind, "---", sep="\n")
+    # load users and their assigned community in the first deadline
     comm_proj, base_users = load_base_community(kind, drop_basket=False)
 
     for deadline in DEADLINES:
         print(deadline)
+        # load users and edges ad all deadlines
         tail, head, users = load_graph(deadline)
+        # compute the adjacency matrix
         adj = tail @ head.T
 
         # symmetrize
@@ -61,9 +69,13 @@ def main(kind: str) -> None:
         degree = adj.sum(1)
 
         # projector to the initial users
+        # users in the first deadline are mapped to themself the, the others to none.
         base_proj = proj_to_base(users, base_users)
 
         # compute the links to the existing communities
+        # adj -> for each user, report its neighbors.
+        # adj @ base_proj -> for each user, count the neighbors that were present in the first deadline
+        # adj @ base_proj @ comm_proj -> for each user, count the neighbors in each community
         cols = (adj @ base_proj @ comm_proj).toarray()
         # add the total number of links
         cols = np.concatenate([cols, degree], axis=1)

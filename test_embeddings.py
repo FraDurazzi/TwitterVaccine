@@ -4,20 +4,22 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn import decomposition
 
-from build_graphs import DATAPATH, DEADLINES
+from build_graphs import DEADLINES
 from load_embeddings import load
 
 USE = "norm_laplacian"
-USE = "n2v"
 USE = "fa2"
 USE = "louvain"
 USE = "laplacian"
+USE = "n2v"
 
 
 def embed2d(input: pd.DataFrame) -> pd.DataFrame:
     """Make a PCA to a 2D distribution."""
     if len(input.columns) == 2:
         return input
+
+    return input[[list(input.columns)[-2:]]]
 
     pca = decomposition.PCA(n_components=2).fit_transform(input)
     return pd.DataFrame(pca)
@@ -91,7 +93,7 @@ def main() -> None:
             ax.set(ylabel="zoom", **ax_opts)
 
     fig.tight_layout()
-    fig.savefig("./plots/embedding_laplacian.png", dpi=200)
+    fig.savefig("./plots/embedding_laplacian.png", dpi=200, transparent=False)
 
 
 if __name__ == "__main__":

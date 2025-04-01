@@ -15,10 +15,10 @@ from collections import Counter
 import networkx as nx
 import numpy as np
 import pandas as pd
-from scipy import sparse
 from dirs import NETWORK_DATA
 # from DIRS import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 from dirs import LARGE_DATA_DIR
+from scipy import sparse
 
 DATAPATH = pathlib.Path(NETWORK_DATA+"data_tw_tight")
 DATAPATH.mkdir(parents=True, exist_ok=True)
