@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from dirs import NETWORK_DATA
 
 EMBEDDINGS = [
     "laplacian",
@@ -21,7 +22,7 @@ EMBEDDINGS = [
 ]
 
 DATA_BIO11 = Path(
-    "/home/PERSONALE/mauro.faccin/projs/tweet_classify_w_community/TwitterVaccine/data_tw_tight"
+    NETWORK_DATA+"data_tw_tight"
 )
 DATA_STOR = Path("/mnt/stor/users/mauro.faccin/twitter_vaccine/data_tw_tight/")
 

@@ -14,7 +14,7 @@ import pandas as pd
 import sknetwork
 import tqdm
 from scipy import sparse
-
+from dirs import NETWORK_DATA
 from build_graphs import DATAPATH, DEADLINES, load_graph
 
 
@@ -347,7 +347,7 @@ def main(deadline: str) -> None:
         )
     print(communities)
     print(communities.nunique())
-
+    communities.to_csv(NETWORK_DATA+f"data_tw_tight/all_coms_{deadline}.csv.gz",lineterminator='\n')
     adjacency = tail @ head.T
     emb_list = []
     for part in communities.columns:
