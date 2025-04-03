@@ -38,12 +38,12 @@ from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 fold=True
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-penalty="elasticnet"
+penalty="l2"
 solver='saga'
 #solver="lbfgs"
 method="basic"
-l1_ratios=0.75
-#l1_ratios=0
+#l1_ratios=0.75
+l1_ratios=0
 labels=[0,1,2]
 #labels=[0,1]
 model="logistic"
@@ -79,7 +79,7 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray,method="bca") ->
         dict: A dictionary containing accuracy, F1 scores, Matthews correlation coefficient, and their confidence intervals.
     """
     acc = np.mean(predictions == labels)
-    f1 = f1_score(labels, predictions, average = 'micro')
+    f1 = f1_score(labels, predictions, average = 'macro')
     f1s= f1_score(labels, predictions, average = None)
     matt=matthews_corrcoef(labels, predictions)
     boot_int_acc=bootstrap((predictions,labels),
@@ -88,7 +88,7 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray,method="bca") ->
                            paired=True,
                            vectorized=False,random_state=42).confidence_interval
     boot_int_f1_score=bootstrap((predictions,labels),
-                                lambda x,y :f1_score(x,y,average='micro'),
+                                lambda x,y :f1_score(x,y,average='macro'),
                                 method=method,
                                 paired=True,
                                 vectorized=False,random_state=42).confidence_interval
@@ -123,7 +123,7 @@ def compute_metrics_k_fold(predictions: np.ndarray, labels: np.ndarray,method="b
         dict: A dictionary containing accuracy, F1 scores, Matthews correlation coefficient.
     """
     acc = np.mean(predictions == labels)
-    f1 = f1_score(labels, predictions, average = 'micro')
+    f1 = f1_score(labels, predictions, average = 'macro')
     f1s= f1_score(labels, predictions, average = None)
     matt=matthews_corrcoef(labels, predictions)
 
