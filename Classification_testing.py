@@ -38,30 +38,34 @@ from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 fold=True
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-penalty='elasticnet'
+penalty="elasticnet"
 solver='saga'
 #solver="lbfgs"
 method="basic"
-l1_ratios=0.4
+l1_ratios=0.75
 #l1_ratios=0
 labels=[0,1,2]
 #labels=[0,1]
 model="logistic"
 #model="ridge"
-#model="random_forest"
-#model="svm"
 if model=="logistic":
-    settings=penalty+"_"+solver+"_"+method
+    settings= penalty+"_"+solver+"_"+method +f"_{l1_ratios}" if penalty=="elasticnet" else penalty+"_"+solver+"_"+method
 else:
     settings=model
 if fold:
     settings=settings+"/fold"
 else:
     settings=settings+"/bootstrap"
-WORKING_PATH=DATA_DIR+settings+"/"+str(len(labels))+"l/"
-Path(WORKING_PATH).mkdir(parents=True, exist_ok=True)
+result_path=DATA_DIR+"results/"+settings+"/"+str(len(labels))+"l/"
+logits_path=f"{DATA_DIR}logits/{penalty}_{solver}_{method}_{l1_ratios}/" if penalty=="elasticnet" else f"{DATA_DIR}logits/{penalty}_{solver}_{method}/"
+Path(logits_path).mkdir(parents=True, exist_ok=True)
+Path(result_path).mkdir(parents=True, exist_ok=True)
+print("Choosen model: "+model)
 
-
+def logit(prob, eps=1e-6):
+    prob=np.array(prob)
+    prob = np.clip(prob, eps, 1 - eps)  
+    return np.log(prob / (1 - prob))
 
 def compute_metrics(predictions: np.ndarray, labels: np.ndarray,method="bca") -> dict:
     """
@@ -97,7 +101,7 @@ def compute_metrics(predictions: np.ndarray, labels: np.ndarray,method="bca") ->
                                  lambda x,y : f1_score(x,y),
                                  method=method,
                                  paired=True,
-                                 vectorized=False,random_state=42).confidence_interval._asdict() for i in labels.unique()]
+                                 vectorized=False,random_state=42).confidence_interval._asdict() for i in np.unique(labels)]
     return {'accuracy': acc,
             'int_conf_accuracy': boot_int_acc._asdict(),
             'f1_score': f1,
@@ -138,7 +142,7 @@ def bootstrap_class(train_df: pd.DataFrame,
                     l1_ratios: float = l1_ratios, 
                     solver: str = solver, 
                     random_state: int = 42, 
-                    max_iter: int = 100000,Saving=False
+                    max_iter: int = 1000000,Saving=False
                    ) -> dict:
     """
     Trains a classification model using logistic regression or ridge classifier, 
@@ -189,6 +193,10 @@ def bootstrap_class(train_df: pd.DataFrame,
         Dictionary containing the evaluation metrics for train, validation, test, 
         and future datasets.
     """
+    rescale=StandardScaler()
+    rescale.fit(train_df[using_cols])
+    train_df[using_cols]=rescale.transform(train_df[using_cols])
+    val_df[using_cols]=rescale.transform(val_df[using_cols])
     if model == "logistic":
         if l1_ratios:
             clf = LogisticRegressionCV(penalty=penalty,
@@ -208,7 +216,7 @@ def bootstrap_class(train_df: pd.DataFrame,
     elif model == "svm":
         clf = SVC(random_state=random_state).fit(train_df[using_cols], train_df["label"])
     elif model=="ridge":
-            clf=RidgeClassifierCV().fit(train_df[using_cols],train_df["label"])
+            clf=RidgeClassifierCV(alphas=(0.01,0.1, 1.0, 10.0,100,500,1000)).fit(train_df[using_cols],train_df["label"])
     else:
             raise ValueError("Model not recognized. Please choose 'logistic', 'random_forest', or 'svm'.")
     train_df["prediction"]=clf.predict(train_df[using_cols])
@@ -233,7 +241,8 @@ def kfold_class(fold_df: pd.DataFrame,
                 l1_ratios: float = l1_ratios, 
                 solver: str = solver, 
                 random_state: int = 42, 
-                max_iter: int = 1000000,
+                max_iter: int = 10000000,
+                n_split=5,
                 Saving=False) -> dict:
     """
     Trains a classification model using logistic regression or ridge classifier with K-fold cross-validation,
@@ -279,20 +288,24 @@ def kfold_class(fold_df: pd.DataFrame,
         Dictionary containing the evaluation metrics for train, validation, test, 
         and future datasets.
 """
-    kf = KFold(n_splits=5)
+    kf = KFold(n_split)
     x=fold_df.index.tolist()
     kf.get_n_splits(x)
     label=fold_df["label"].unique()
-    partial_results_train={'accuracy':np.empty(shape=5),
-                           'f1_score':np.empty(shape=5),
-                           'f1_scores':np.empty(shape=(5,len(label))),
-                           'matthews':np.empty(shape=5)}
-    partial_results_val={'accuracy':np.empty(shape=5),
-                           'f1_score':np.empty(shape=5),
-                           'f1_scores':np.empty(shape=(5,len(label))),
-                           'matthews':np.empty(shape=5)}
+    partial_results_train={'accuracy':np.empty(shape=n_split),
+                           'f1_score':np.empty(shape=n_split),
+                           'f1_scores':np.empty(shape=(n_split,len(label))),
+                           'matthews':np.empty(shape=n_split)}
+    partial_results_val={'accuracy':np.empty(shape=n_split),
+                           'f1_score':np.empty(shape=n_split),
+                           'f1_scores':np.empty(shape=(n_split,len(label))),
+                           'matthews':np.empty(shape=n_split)}
     for i, (train_index, val_index) in enumerate(kf.split(x)):
-        train_df, val_df = fold_df.iloc[train_index], fold_df.iloc[val_index]
+        train_df, val_df = fold_df.iloc[train_index].copy(), fold_df.iloc[val_index].copy()
+        rescale=StandardScaler()
+        rescale.fit(train_df[using_cols])
+        train_df[using_cols]=rescale.transform(train_df[using_cols])
+        val_df[using_cols]=rescale.transform(val_df[using_cols])
         if model == "logistic":
             if (l1_ratios):                
                 clf=LogisticRegressionCV(penalty=penalty,
@@ -310,13 +323,17 @@ def kfold_class(fold_df: pd.DataFrame,
         elif model == "random_forest":
             clf = RandomForestClassifier(random_state=random_state).fit(train_df[using_cols], train_df["label"])
         elif model == "svm":
-            clf = SVC(random_state=random_state).fit(train_df[using_cols], train_df["label"])
+            clf = SVC(random_state=random_state,probability=True).fit(train_df[using_cols], train_df["label"])
         elif model=="ridge":
-            clf=RidgeClassifierCV().fit(train_df[using_cols],train_df["label"])
+            clf=RidgeClassifierCV(alphas=(0.01,0.1, 1.0, 10.0,100,500,1000)).fit(train_df[using_cols],train_df["label"])
         else:
             raise ValueError("Model not recognized. Please choose 'logistic', 'random_forest','ridge' or 'svm'.")
         train_pred=clf.predict(train_df[using_cols])
         val_pred=clf.predict(val_df[using_cols])
+        prob=list(clf.predict_proba(val_df[using_cols]))
+        logits=[logit(prob[i]) for i in range(len(prob))]
+        pd.DataFrame(data={"id":val_df.index.to_list(),
+                       "logits":logits}).to_csv(logits_path+f"folding/val_logits_fold_{i}_{using}.csv",index=False)
         esteem=compute_metrics_k_fold(train_pred,train_df["label"].to_numpy())
         for j in list(esteem.keys()):
             partial_results_train[j][i]=esteem[j]
@@ -338,8 +355,42 @@ def kfold_class(fold_df: pd.DataFrame,
             result_val['int_conf_'+j]=[{"low":result_val[j][k]-std[k],"high":result_val[j][k]+std[k]}for k in range(len(std))]
         except(TypeError):
             result_val['int_conf_'+j]={"low":result_val[j]-std,"high":result_val[j]+std}     
+    if model == "logistic":
+        if (l1_ratios):                
+            clf=LogisticRegressionCV(penalty=penalty,
+                                        solver=solver,
+                                        random_state=random_state,
+                                        max_iter=max_iter,
+                                        l1_ratios=[l1_ratios],
+                                        cv=5).fit(fold_df[using_cols],fold_df["label"])
+        else:
+            clf=LogisticRegressionCV(penalty=penalty,
+                                        solver=solver,
+                                        random_state=random_state,
+                                        max_iter=max_iter,
+                                        cv=5).fit(fold_df[using_cols],fold_df["label"])
+    elif model == "random_forest":
+        clf = RandomForestClassifier(random_state=random_state).fit(fold_df[using_cols], fold_df["label"])
+    elif model == "svm":
+        clf = SVC(random_state=random_state,probability=True).fit(fold_df[using_cols], fold_df["label"])
+    elif model=="ridge":
+        clf=RidgeClassifierCV(alphas=(0.01,0.1, 1.0, 10.0,100,500,1000)).fit(fold_df[using_cols],fold_df["label"])
+    else:
+        raise ValueError("Model not recognized. Please choose 'logistic', 'random_forest','ridge' or 'svm'.")
     test_df["prediction"]=clf.predict(test_df[using_cols])
     fut_df["prediction"]=clf.predict(fut_df[using_cols])
+    prob=list(clf.predict_proba(fold_df[using_cols]))
+    logits=[logit(prob[i]) for i in range(len(prob))]
+    pd.DataFrame(data={"id":fold_df.index.to_list(),
+                       "logits":logits}).to_csv(logits_path+f"train/train_logits_{using}.csv",index=False)
+    prob=list(clf.predict_proba(test_df[using_cols]))
+    logits=[logit(prob[i]) for i in range(len(prob))]
+    pd.DataFrame(data={"id":test_df.index.to_list(),
+                       "logits":logits}).to_csv(logits_path+f"test/test_logits_{using}.csv",index=False)
+    prob=list(clf.predict_proba(fut_df[using_cols]))
+    logits=[logit(prob[i]) for i in range(len(prob))]
+    pd.DataFrame(data={"id":fut_df.index.to_list(),
+                       "logits":logits}).to_csv(logits_path+f"fut/fut_logits_{using}.csv",index=False)
     results={"Train_set": result_train,
              "Val_set":result_val,
              "Test_set":compute_metrics(test_df["prediction"],test_df["label"],method),
@@ -387,18 +438,18 @@ def main():
         fut_df=loader("fut")
         fold_df=loader("fold")   
     try:
-        f=open(WORKING_PATH+filename,"x") 
+        f=open(result_path+filename,"x") 
     except FileExistsError:
-        f=open(WORKING_PATH+filename,"a")  
+        f=open(result_path+filename,"a")  
         ###Rescaling the used feature
-        if (len(using_cols)<11):
-            rescale=StandardScaler()
-            rescale.fit(train_df[using_cols])
-            train_df[using_cols]=rescale.transform(train_df[using_cols])
-            val_df[using_cols]=rescale.transform(val_df[using_cols])
-            test_df[using_cols]=rescale.transform(test_df[using_cols])
-            fut_df[using_cols]=rescale.transform(fut_df[using_cols])
-            fold_df[using_cols]=rescale.transform(fold_df[using_cols])
+        #if (len(using_cols)<11): se scommentata dare tab fino agli hastag sotto
+        rescale=StandardScaler()
+        rescale.fit(fold_df[using_cols])
+        #train_df[using_cols]=rescale.transform(train_df[using_cols])
+        #val_df[using_cols]=rescale.transform(val_df[using_cols])
+        test_df[using_cols]=rescale.transform(test_df[using_cols])
+        fut_df[using_cols]=rescale.transform(fut_df[using_cols])
+        #fold_df[using_cols]=rescale.transform(fold_df[using_cols])
         ###
     if (not fold):
         results=bootstrap_class(train_df,val_df,test_df,fut_df,using=using,using_cols=using_cols)
@@ -459,14 +510,15 @@ if __name__ == "__main__":
     all_results={}
     filename="output.txt"
     fileout="output.json"
-    f=open(WORKING_PATH+fileout,"w")
+    f=open(result_path+fileout,"w")
     f.close()
-    f=open(WORKING_PATH+filename,"w")
+    f=open(result_path+filename,"w")
     f.close()
     for i in range(len(features)):
         using=features_name[i]
         using_cols=features[i]
         all_results[using]=main()
+    """
     using_cols=text_cols
     using="text"
     all_results[using]=main()
@@ -474,10 +526,11 @@ if __name__ == "__main__":
         using=features_name[i]+" + text"
         using_cols=np.append(features[i],text_cols)        
         all_results[using]=main()
+    """
     try:
-        f=open(WORKING_PATH+fileout,"x") 
+        f=open(result_path+fileout,"x") 
     except FileExistsError:
-        f=open(WORKING_PATH+fileout,"a")
-    f=open(WORKING_PATH+fileout,"w")
+        f=open(result_path+fileout,"a")
+    f=open(result_path+fileout,"w")
     json.dump(all_results,f)
     f.close()
