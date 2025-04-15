@@ -38,12 +38,12 @@ from pathlib import Path
 from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 fold=True
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
-penalty="l2"
+penalty="elasticnet"
 solver='saga'
 #solver="lbfgs"
 method="basic"
-#l1_ratios=0.75
-l1_ratios=0
+l1_ratios=0.25
+#l1_ratios=0
 labels=[0,1,2]
 #labels=[0,1]
 model="logistic"

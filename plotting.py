@@ -13,10 +13,49 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 os.environ['TRANSFORMERS_CACHE'] = TRANSFORMERS_CACHE_DIR
 from Classification import WORKING_PATH
 #WORKING_PATH=DATA_DIR+"ridge/3l/"
-WORKING_PATH="/home/PERSONALE/niccolo.barbieri3/thesis_project/thesis_data/l1_saga_basic/fold/2l/"
+WORKING_PATH=f"{DATA_DIR}l1_saga_basic/fold/2l/"
 printing=WORKING_PATH+"test/"
-pathlib.Path(printing).mkdir()
+#pathlib.Path(printing).mkdir()
 selected_set="Test set"
+
+def multi_plot(x_labels, values, errors=None, name="plot", x_axis="", y_axis="F1 Score", WORKING_PATH=""):
+    fig, ax = plt.subplots()
+
+    # Parametri di spaziatura per affiancare i punti
+    offset = np.linspace(-0.2, 0.2, len(values[0]))
+    colors = ['blue', 'green', 'red']
+    markers = ['o', 's', '^']
+
+    # Plotta i gruppi di valori
+    for i, (val_set, err_set) in enumerate(zip(values, errors if errors else [None] * len(values))):
+        for j, (v, err) in enumerate(zip(val_set, err_set if err_set else [None] * len(val_set))):
+            if i == 0:  # Assegna l'etichetta solo una volta per ogni feature
+                ax.errorbar(i + offset[j], v, yerr=err, fmt=markers[j], color=colors[j], capsize=5, label=["ProVax","Neutral","AntiVax"][j])
+            else:
+                ax.errorbar(i + offset[j], v, yerr=err, fmt=markers[j], color=colors[j], capsize=5)
+
+    # Imposta etichette x
+    ax.set_xticks(np.arange(len(x_labels)))
+    ax.set_xticklabels(x_labels, rotation=30, fontsize=12)
+
+    # Titoli e assi
+    ax.set_title(name, fontsize=16, fontweight='bold')
+    ax.set_xlabel(x_axis, fontsize=14)
+    ax.set_ylabel(y_axis, fontsize=14)
+
+    # Griglia
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # Legenda
+    ax.legend(loc='lower right', fontsize=12)
+
+    # Salvataggio
+    plt.savefig(f"{WORKING_PATH}{name}.pdf", format='pdf')
+    plt.savefig(f"{WORKING_PATH}{name}.png", format='png')
+
+    # Mostra
+    plt.show()
+
 
 def plotting(x,y,text_comp,x_errs=None,y_errs=None,name=None,x_axis=None,y_axis=None,WORKING_PATH=WORKING_PATH):
     text_val,text_err=text_comp
