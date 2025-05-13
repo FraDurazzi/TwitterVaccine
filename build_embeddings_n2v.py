@@ -28,7 +28,7 @@ def main() -> None:
             num_walks=100,
             workers=20,
             p=1,  # backward probability
-            q=0.5,  # Search further for homofily (highlights community structure)
+            q=0.5,  # Search further for homophily (highlights community structure)
         )
         model = n2v.fit()
 

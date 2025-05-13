@@ -5,8 +5,6 @@ Prepare the adjacency matrix for ./build_embeddings_eigs.m
 Run this before that.
 """
 
-import time
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -23,8 +21,12 @@ NUM_EIGS = 11
 def find_smaller_eigenvectors(
     matrix: sparse.spmatrix, neig: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Find the `neig` eigpairs corresponding to the smallerst eigenvalues."""
-    # fing largest eigenvalue (pos def matrix has all positive evals)
+    """Find the `neig` eigpairs corresponding to the smallerst eigenvalues.
+
+    WARNING: The `numpy` implementation is too slow due to the choice of C parameters.
+    Use `Octave`.
+    """
+    # Find largest eigenvalue (positive defined matrix has all positive evals)
     eval = linalg.eigsh(matrix, k=1, which="LM", tol=1e-5)[0][0]
 
     # flip-shift the eigenvalues

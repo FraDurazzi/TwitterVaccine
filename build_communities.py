@@ -52,14 +52,14 @@ def partition_core(
     n_p = len(periphery)
     n_c = len(core)
 
-    # projector to the periphery subset of nodes
+    # Projector to the periphery subset of nodes
     # shape: N x N_p
     proj_periphery = sparse.coo_matrix(
         (np.ones_like(periphery), (periphery, np.arange(len(periphery)))),
         shape=(n_nodes, n_p),
     ).tocsr()
 
-    # projector to the core subset of nodes
+    # Projector to the core subset of nodes
     # shape: N x N_c
     proj_core = sparse.coo_matrix(
         (np.ones_like(core), (core, np.arange(len(core)))),
@@ -69,10 +69,10 @@ def partition_core(
 
     # Extract all links connected to the periphery
     periphery_links = proj_periphery.T @ adjacency + (adjacency @ proj_periphery).T
-    # link from core to periphery N_p x N_c
+    # Link from core to periphery N_p x N_c
     core_periphery = periphery_links @ proj_core
 
-    # compute the partition structure on the core of the network
+    # Compute the partition structure on the core of the network
     core_partition = partition(core_adj, kind=kind)
 
     if isinstance(core_partition, pd.DataFrame):
@@ -125,7 +125,7 @@ def _hydrate_(
     # partition: N_c x N_comm
     n_c = len(core_partition)
     n_comm = core_partition.nunique()
-    # projector from core nodes to the communities
+    # Projector from core nodes to the communities
     core_part_proj = sparse.coo_matrix(
         (
             np.ones_like(core_partition),
@@ -133,15 +133,15 @@ def _hydrate_(
         ),
         shape=(n_c, n_comm),
     ).tocsr()
-    # assign the periphery nodes to the corresponding core node communities.
-    # shape: N_p x N_comm
+    # Assign the periphery nodes to the corresponding core node communities.
+    # Shape: N_p x N_comm
     periphery_part = core_periphery @ core_part_proj
 
-    # partition of the whole adj
+    # Partition of the whole adj
     # shape: N x N_comm
     full_partition = proj_core @ core_part_proj + proj_periphery @ periphery_part
 
-    # compress the partition to a list of class indexes
+    # Compress the partition to a list of class indexes
     compressor = sparse.coo_matrix(np.arange(n_comm), shape=(1, n_comm)).tocsr()
     return (full_partition @ compressor.T).toarray().astype(int).squeeze()
 
@@ -155,7 +155,7 @@ def partition(
     t0 = time()
     if kind == "louvain":
         p = nx.community.greedy_modularity_communities(
-            # use the undirected form.
+            # Use the undirected form.
             nx.from_scipy_sparse_array(
                 adj, create_using=nx.Graph, edge_attribute="weight"
             ),
@@ -167,7 +167,7 @@ def partition(
         p = louvain.fit_predict(adj)
         p = pd.Series(p, name="sk_louvain")
     elif kind == "leiden":
-        # optimize modularity with leiden in igraph
+        # Optimize modularity with leiden in igraph
         graph_ig = sparse2igraph(adj, directed=False)
         p = graph_ig.community_leiden(objective_function="modularity", weights="weight")
     elif kind == "infomap":
@@ -176,21 +176,6 @@ def partition(
     elif kind == "fastgreedy":
         graph_ig = sparse2igraph(adj)
         p = graph_ig.community_fastgreedy(weights="weight").as_clustering()
-    # elif kind == "stability":
-    #     transition, steadystate = compute_transition_matrix(
-    #         adj + 0.1 * adj.T, niter=1000
-    #     )
-    #     stab = stability.run(
-    #         transition @ sparse.diags(steadystate, offsets=0, shape=transition.shape),
-    #         n_workers=15,
-    #         tqdm_disable=False,
-    #     )
-    #     p = pd.DataFrame(
-    #         {
-    #             f"stab_{p_id}": stab["community_id"][p_id]
-    #             for p_id in stab["selected_partitions"]
-    #         }
-    #     )
     elif kind == "labelpropagation":
         graph_ig = sparse2igraph(adj)
         p = graph_ig.community_label_propagation(weights="weight")
