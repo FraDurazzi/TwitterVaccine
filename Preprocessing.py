@@ -18,6 +18,7 @@ import seaborn as sns
 import json
 import re,os
 from typing import Union
+from transformers import BertTokenizer, BertForMaskedLM 
 from sklearn.model_selection import train_test_split
 from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import StandardScaler
@@ -25,6 +26,8 @@ from dirs import TRANSFORMERS_CACHE_DIR, DATA_DIR, LARGE_DATA_DIR
 import pathlib
 from build_graphs import DEADLINES
 from load_embeddings import load
+from sklearn.decomposition import PCA
+from sentence_transformers import models
 labels=['ProVax','Neutral','AntiVax']
 #labels=['ProVax','AntiVax']
 random_state=42
@@ -32,27 +35,68 @@ random_state=42
 import pandas as pd
 from typing import Union
 
-def undersampling(df: pd.DataFrame, random_state : Union[int, None] = None) -> pd.DataFrame:
+import re
+
+def replace_special_tokens(text: str) -> str:
+    """
+    Replaces URLs, numbers, hashtags, and mentions in the input text with generic tokens.
+
+    - URLs (e.g., http://example.com) are removed.
+    - Numbers are replaced with "NUMBER".
+    - Hashtags (e.g., #example) are replaced with "hashtag".
+    - Mentions (e.g., @user) are replaced with "user".
+    - Specific punctuation marks (e.g., commas, periods) are replaced with spaces.
+
+    Parameters:
+    ----------
+    text : str
+        The input text where substitutions will be made.
+
+    Returns:
+    --------
+    str
+        The modified text with URLs, numbers, hashtags, mentions, and punctuation replaced by generic tokens.
+    """
+    # Remove URLs
+    text = re.sub(r'http[s]?://\S+|www\.\S+', '', text)
+    # Replace numbers with "NUMBER"
+    text = re.sub(r'\d+', 'NUMBER', text)
+    # Replace hashtags with "hashtag"
+    text = re.sub(r'#', 'hashtag ', text)
+    # Replace mentions with "user"
+    text = re.sub(r'@', 'user ', text)
+    
+    # List of punctuation to remove
+    punct_to_rem = [",", ".", ":", ";", "-", '"', '“', '«', '»', "'", '’']
+    for p in punct_to_rem:
+        text = text.replace(p, " ")
+    
+    return text
+
+def undersampling(df: pd.DataFrame, random_state: Union[int, None] = None) -> pd.DataFrame:
     """
     Perform undersampling on a DataFrame to balance label classes.
 
     Parameters:
     - df (pd.DataFrame): The input DataFrame containing a 'label' column.
-    - random_state (int|None): Seed for reproducibility in random sampling, if no seed is passed then completely random process is performed.
+    - random_state (int|None): Seed for reproducibility in random sampling, if no seed is passed then a completely random process is performed.
 
     Returns:
     - pd.DataFrame: Undersampled DataFrame with balanced label classes.
     """
-    # Determine the minimum count across the three classes to avoid sampling errors
-    min_count = df.label.value_counts().min()
-    
-    out = pd.concat([
-        df[df.label == 'ProVax'].sample(min_count, random_state=random_state),
-        df[df.label == 'AntiVax'].sample(min_count, random_state=random_state),
-        df[df.label == 'Neutral'].sample(min_count, random_state=random_state)
-    ], ignore_index=True)  # To reset the index
-    
-    return out.sample(frac=1, random_state=random_state)  # Shuffle the rows
+    # Find unique classes and determine minimum count
+    label_counts = df.label.value_counts()
+    min_count = label_counts.min()
+
+    # Perform undersampling for each class in a dynamic way
+    balanced_df = pd.concat([
+        df[df.label == label].sample(min_count, random_state=random_state)
+        for label in label_counts.index
+    ], ignore_index=True)
+
+    # Shuffle the final output
+    return balanced_df.sample(frac=1, random_state=random_state)
+ 
 
 
 def rescale(df: pd.DataFrame, columns: list[str] = ["fa2_x", "fa2_y"]) -> pd.DataFrame:
@@ -184,7 +228,7 @@ def reading_merging(path_df: str,
     new_n2v,new_lap,new_fa2,new_ld,new_lv,new_lab_prop,new_norm_lap=loading("post")
     #df_com_leiden=df_com_leiden.set_index("user.id")
     #df_com_leiden.index=df_com_leiden.index.map(str)
-    #df_anno_future.to_csv(DATA_DIR+"full_futures_annotated.csv",line_terminator='\n')
+    #df_anno_future.to_csv(DATA_DIR+"full_futures_annotated.csv",lineterminator='\n')
     df=df.merge(old_n2v,how="left",left_on="user.id",right_index=True)
     df=df.merge(old_lap,how="left",left_on="user.id",right_index=True)
     df=df.merge(old_fa2,how="left",left_on="user.id",right_index=True)
@@ -194,7 +238,7 @@ def reading_merging(path_df: str,
     df=df.merge(old_norm_lap,how="left",left_on="user.id",right_index=True)
     df_future=df_future.merge(new_n2v,how="left",left_on="user.id",right_index=True)
     df_future=df_future.merge(new_lap,how="left",left_on="user.id",right_index=True)
-    df_future=df_future.merge(new_fa2,how="left",left_on="user.id",right_index=True)
+    df_future=df_future.merge(new_fa2,how="left",left_on="user.id",right_index=True) 
     df_future=df_future.merge(new_ld,how="left",left_on="user.id",right_index=True)
     df_future=df_future.merge(new_lv,how="left",left_on="user.id",right_index=True)
     df_future=df_future.merge(new_lab_prop,how="left",left_on="user.id",right_index=True)
@@ -202,7 +246,8 @@ def reading_merging(path_df: str,
     return df,df_future
 
 def embedding(df: pd.DataFrame,
-              model_name: str = 'm-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0') -> pd.DataFrame:
+              model_name: str = 'm-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0',
+             pooling:str="cls") -> pd.DataFrame:
     """
     Compute sentence embeddings using a pre-trained transformer model.
 
@@ -213,6 +258,8 @@ def embedding(df: pd.DataFrame,
     model_name : str, optional
         Name or path of the pre-trained transformer model to be used for computing embeddings.
         Default is 'm-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0'.
+    pooling: str, optional
+        Type of pooling, default is cls
 
     Returns:
     --------
@@ -225,17 +272,26 @@ def embedding(df: pd.DataFrame,
     using pre-trained transformer models.
     """
     # Load the pre-trained transformer model
-    model = SentenceTransformer(model_name)
-    
+    #transformer = models.Transformer(model_name,tokenizer_name_or_path='m-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0')
+    transformer = models.Transformer(model_name,tokenizer_name_or_path="dbmdz/bert-base-italian-cased")
+    #tokenizer = BertTokenizer.from_pretrained('m-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0')
+    #transformer = BertForMaskedLM.from_pretrained(model_name)
+    new_tokens_df=pd.read_csv('~/bert_base/tokens_to_add.txt',header=None, names=['Word'])
+    pooling = models.Pooling(transformer.get_word_embedding_dimension(), pooling_mode=pooling)
+    model = SentenceTransformer(modules=[transformer, pooling])
+    new_tokens_list=new_tokens_df["Word"].tolist()
+    num_added_tokens = model.tokenizer.add_tokens(new_tokens_list)
     # Define column names for embedding columns
     list_cols = ["emb_col_" + str(i) for i in range(768)]
-    
+    #list_cols = ["emb_col_" + str(i) for i in range(10)]
+    #pca = PCA(n_components=10)
     # Copy the input DataFrame to avoid modifying the original
     df_out = df.copy()
     
     # Compute embeddings for each sentence in the DataFrame
+    #df_out[list_cols] = pca.fit_transform(model.encode(df_out["sentence"], show_progress_bar=True))
     df_out[list_cols] = model.encode(df_out["sentence"], show_progress_bar=True)
-    df_out[list_cols]=rescale(df_out,list_cols)
+    #df_out[list_cols]=rescale(df_out,list_cols)
     return df_out
 
 def preproc(df: pd.DataFrame,
@@ -260,6 +316,7 @@ def preproc(df: pd.DataFrame,
     - tuple[pd.DataFrame, np.ndarray]: tuple containing the preprocessed DataFrame and corresponding indices.
     """
     df_anno=df[df['annotation'].notna()].copy()
+    df_anno.text=df_anno.text.apply(replace_special_tokens)
     df_anno.loc[:,'text']=df_anno['text'].apply(lambda x: x.replace('\n',' ') #Unix newline character
                                                             .replace('\t','') #Tab character
                                                             .replace("\r\n"," ") #Windows newline character
@@ -313,11 +370,10 @@ def preproc(df: pd.DataFrame,
     df_fut["label"]=df_fut["label"].map(label2id)
     df_fut=df_fut.dropna(subset=["label"])
     df_fut["label"]=df_fut["label"].astype(int)
-    #print("df")
-    #print(df.columns)
-    #print("df_fut")
-    #print(df_fut.columns)
-    return (embedding(df_anno),ids,embedding(df_fut))
+    #model_name="dbmdz/bert-base-italian-cased"
+    model_name="/home/PERSONALE/niccolo.barbieri3/bert_base"
+    #model_name='m-polignano-uniba/bert_uncased_L-12_H-768_A-12_italian_alb3rt0'
+    return (embedding(df_anno,model_name=model_name),ids,embedding(df_fut,model_name=model_name))
 
 def main(DATA_INFO):
     path_df,name_df,dtype_df,seed,label,DATA_PATH=DATA_INFO
@@ -328,23 +384,21 @@ def main(DATA_INFO):
     print("Dataset splitting")
     id_fold,id_test=train_test_split(ids, test_size=0.165, random_state=42)
     id_train,id_val=train_test_split(id_fold, test_size=0.197, random_state=42)
-    #print("df in main")
-    #print(df.columns)
-    #print("df_fut in main")
-    #print(df_fut.columns)
     print("Saving the dataset")
     if(len(labels)==2):
-        df[df.index.isin(id_train)].to_csv(DATA_PATH+'train_2l.csv',line_terminator='\n')
-        df[df.index.isin(id_test)].to_csv(DATA_PATH+'test_2l.csv',line_terminator='\n')
-        df[df.index.isin(id_val)].to_csv(DATA_PATH+'val_2l.csv',line_terminator='\n')
-        df[df.index.isin(id_fold)].to_csv(DATA_PATH+'fold_2l.csv',line_terminator='\n')
-        df_fut.to_csv(DATA_PATH+'fut_2l.csv',line_terminator='\n')
+        df.to_csv(DATA_PATH+'anno_2l.csv',lineterminator='\n')
+        df[df.index.isin(id_train)].to_csv(DATA_PATH+'train_2l.csv',lineterminator='\n')
+        df[df.index.isin(id_test)].to_csv(DATA_PATH+'test_2l.csv',lineterminator='\n')
+        df[df.index.isin(id_val)].to_csv(DATA_PATH+'val_2l.csv',lineterminator='\n')
+        df[df.index.isin(id_fold)].to_csv(DATA_PATH+'fold_2l.csv',lineterminator='\n')
+        df_fut.to_csv(DATA_PATH+'fut_2l.csv',lineterminator='\n')
     else:
-        df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',line_terminator='\n')
-        df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',line_terminator='\n')
-        df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',line_terminator='\n')
-        df[df.index.isin(id_fold)].to_csv(DATA_PATH+'fold.csv',line_terminator='\n')
-        df_fut.to_csv(DATA_PATH+'fut.csv',line_terminator='\n')        
+        df.to_csv(DATA_PATH+'anno.csv',lineterminator='\n')
+        df[df.index.isin(id_train)].to_csv(DATA_PATH+'train.csv',lineterminator='\n')
+        df[df.index.isin(id_test)].to_csv(DATA_PATH+'test.csv',lineterminator='\n')
+        df[df.index.isin(id_val)].to_csv(DATA_PATH+'val.csv',lineterminator='\n')
+        df[df.index.isin(id_fold)].to_csv(DATA_PATH+'fold.csv',lineterminator='\n')
+        df_fut.to_csv(DATA_PATH+'fut.csv',lineterminator='\n')        
 
 if __name__ == "__main__":
     path_df=LARGE_DATA_DIR+"df_full.csv.gz"
